@@ -27,17 +27,17 @@
   float Kd_center = 12.0f;
 
   float Kp_corner = 40.0f;     // used when absErr>=2
-  float Kd_corner = 34.0f;
+  float Kd_corner = 24.0f;
 
   // Turn clamp scheduling
-  float maxTurn_center = 70.0f;
+  float maxTurn_center = 95.0f;
   float maxTurn_corner = 350.0f;
 
   // Derivative smoothing (less laggy than 0.95 for digital steps)
-  const float dAlpha_use = 0.80f;
+  const float dAlpha_use = 0.88f;
 
   // Turn slew-rate limit (prevents sharp snapping)
-  float turnSlewRate = 450.0f; // turn units per second (tune 150..400)
+  float turnSlewRate = 350.0f; // turn units per second (tune 150..400)
 
   // --- NEW: Inner sensor softness (abs(error)==1) ---
   float innerErrorScale = 0.60f;  // soft straighten-up strength (tune 0.15..0.60)
