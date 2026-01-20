@@ -311,3 +311,136 @@
         lastTimeMs = millis();
 
       }
+
+//-----drive to neighbouring node--------
+  void followNode(int to){
+    if (prev==to){turn180();}
+    while (true){
+          follow();
+          if (detectNode()){
+            prev = to;
+            sendArrival(prev)
+            break;
+            }
+  }
+  void driveEdge(int from, int to){
+      if (from==0){
+        if (to==7){
+            followNode(to);
+          }
+        }
+        
+      }
+
+
+
+  }
+
+//------pathfinding-----
+  int position = 0
+  int target = 0
+
+  //adjacency mapping
+  enum Node { 0, 1, 2, 3, 4, 5, 6, 7, NODE_COUNT };
+
+  struct Edge { uint8_t to; uint8_t w; }; // path to node (to) had weight (w)
+      // array of all edges adjacent to nodes 0,1,2...
+  const Edge adj6[]  = { {3,2}, {4,2}, {1,1} }; 
+  const Edge adj7[]  = { {2,1}, {1,1}, {0,1} };
+  const Edge adj0[]  = { {7,1},  {4,1} };
+  const Edge adj1[]  = { {7,1}, {6,1}};
+  const Edge adj2[]  = { {3,1}, {7,1} };
+  const Edge adj3[]  = { {6,2},  {2,1} };
+  const Edge adj4[]  = { {6,1},  {0,1} };
+  const Edge adj5[]  = {              };
+
+  const Edge* graph[NODE_COUNT] = { adj6, adj7, adj0, adj1, adj2, adj3, adj4 ,adj5};
+  const uint8_t deg[NODE_COUNT] = { 3,    3,    2,    1,    2,    2,    2   ,0 };
+
+  // Computes the shortest distance from 'start' to every other node
+  // dist[]  -> shortest known distance from start to each node
+  // prev[]  -> previous node on the shortest path (for path reconstruction)
+  void dijkstra(int start, int dist[NODE_COUNT], int prev[NODE_COUNT]) {
+
+    // Marks whether a node has been permanently processed
+    bool used[NODE_COUNT];
+
+    // ---- Initialization ----
+    for (int i = 0; i < NODE_COUNT; i++) {
+      dist[i] = INF;   // Start with "infinite" distance to all nodes
+      prev[i] = -1;    // No previous node yet
+      used[i] = false; // No node has been visited
+    }
+
+    // Distance from start node to itself is zero
+    dist[start] = 0;
+
+    // ---- Main Dijkstra loop ----
+    // Runs at most NODE_COUNT times
+    for (int iter = 0; iter < NODE_COUNT; iter++) {
+
+      // Find the unused node with the smallest distance
+      int u = -1;
+      int best = INF;
+
+      for (int i = 0; i < NODE_COUNT; i++) {
+        // Choose the closest unvisited node
+        if (!used[i] && dist[i] < best) {
+          best = dist[i];
+          u = i;
+        }
+      }
+
+      // If no reachable unvisited node remains, stop
+      if (u == -1) break;
+
+      // Mark this node as permanently visited
+      used[u] = true;
+
+      // ---- Relax all edges from node u ----
+      // Look at each neighbor of u
+      for (int k = 0; k < deg[u]; k++) {
+
+        int v = graph[u][k].to; // Neighbor node
+        int w = graph[u][k].w;  // Weight of edge u -> v
+
+        // If going through u gives a shorter path to v, update it
+        if (dist[u] + w < dist[v]) {
+          dist[v] = dist[u] + w; // Update shortest distance
+          prev[v] = u;           // Remember path: v came from u
+        }
+      }
+    }
+  }
+
+
+    // Builds the shortest path from start -> target using the prev[] array
+  // outPath[] will contain the nodes in order: start ... target
+  // Returns the number of nodes in the path
+  int buildPath(int start, int target, int prev[NODE_COUNT], int outPath[16]) {
+
+    int tmp[16]; // Temporary storage for reversed path
+    int n = 0;   // Number of nodes in temporary path
+
+    // ---- Walk backwards from target to start ----
+    for (int cur = target; cur != -1 && n < 16; cur = prev[cur]) {
+      tmp[n++] = cur;     // Store current node
+      if (cur == start)   // Stop once we reach the start
+        break;
+    }
+
+    // If we never reached the start, there is no valid path
+    if (tmp[n - 1] != start)
+      return 0; // unreachable
+
+    // ---- Reverse the path so it goes start -> target ----
+    int len = 0;
+    for (int i = n - 1; i >= 0; i--) {
+      outPath[len++] = tmp[i];
+    }
+
+    // Return length of the final path
+    return len;
+  }
+
+

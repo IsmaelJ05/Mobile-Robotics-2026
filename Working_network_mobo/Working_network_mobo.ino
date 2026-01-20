@@ -111,10 +111,7 @@ void setup() {
 
   // Now notify server you arrived at the start
   sendArrival(0);
-  delay(5000);
-  sendArrival(1);
-  delay(5000);
-  sendArrival(2);
+
 }
 void loop() {
   // Later you can call sendArrival(newPosition);
