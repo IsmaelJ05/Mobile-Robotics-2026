@@ -3,7 +3,7 @@
 
 // -------------------- TUNING (START VALUES) --------------------
   int delaySet  = 0;
-  int baseSpeed = 200;          // start lower while tuning
+  int baseSpeed = 250;          // start lower while tuning
 
   // Keep Ki = 0 for digital sensors until everything else is stable
   float Ki = 0.0;
@@ -19,28 +19,28 @@
   const bool SENSOR_HIGH_ON_LINE = true; // RAW HIGH when on line (your sensor ranges)
 
   // Corner slow-down
-  int slowDown1 = 20;          // when abs(error)==1 (inner sensors active)
-  int slowDown2 = 80;          // when abs(error)>=2 (outer sensors active)
+  int slowDown1 = 40;          // when abs(error)==1 (inner sensors active)
+  int slowDown2 = 150;          // when abs(error)>=2 (outer sensors active)
 
   // Gain scheduling (soft in center, stronger in corners)
-  float Kp_center = 22.0f;     // used when absErr<=1
-  float Kd_center = 16.0f;
+  float Kp_center = 28.0f;     // used when absErr<=1
+  float Kd_center = 12.0f;
 
   float Kp_corner = 40.0f;     // used when absErr>=2
-  float Kd_corner = 30.0f;
+  float Kd_corner = 34.0f;
 
   // Turn clamp scheduling
   float maxTurn_center = 70.0f;
-  float maxTurn_corner = 300.0f;
+  float maxTurn_corner = 350.0f;
 
   // Derivative smoothing (less laggy than 0.95 for digital steps)
   const float dAlpha_use = 0.80f;
 
   // Turn slew-rate limit (prevents sharp snapping)
-  float turnSlewRate = 250.0f; // turn units per second (tune 150..400)
+  float turnSlewRate = 450.0f; // turn units per second (tune 150..400)
 
   // --- NEW: Inner sensor softness (abs(error)==1) ---
-  float innerErrorScale = 0.30f;  // soft straighten-up strength (tune 0.15..0.60)
+  float innerErrorScale = 0.60f;  // soft straighten-up strength (tune 0.15..0.60)
 
   // Optional: also soften D when absErr==1 (helps remove twitch)
   float innerDScale = 0.60f;      // tune 0.40..1.00
@@ -158,12 +158,13 @@
     }
 //--------------Loop----------------
   void loop(){
-    if (detectNode()){
+    /*if (detectNode()){
       drive(0,0);
       turn180();
       follow();
       }
-    else{follow();}
+    else{follow();}*/
+    follow();
     }
 
 
@@ -257,7 +258,7 @@
     }
   void turn180(){
     drive(-255,255);
-    delay (400);
+    delay (550);
     while (true){
       readSensor();
       if (DigitalValue[2]==0){
