@@ -160,7 +160,7 @@
   void loop(){
     /*if (detectNode()){
       drive(0,0);
-      turn180();
+      turnRight();
       follow();
       }
     else{follow();}*/
@@ -273,6 +273,41 @@
     dFilt = 0.0f;
     lastTurn = 0.0f;
     lastTimeMs = millis();
-
   }
-    
+  void turnLeft(){
+      drive(255,-255);
+      delay (200);
+      while (true){
+        readSensor();
+        if (DigitalValue[2]==0){
+          break;
+          }
+        }
+      drive (0,0);
+      delay(100);
+      integral = 0.0f;
+      lastEUse = 0.0f;     // reset pid EFFECTIVE error used by PID
+      dFilt = 0.0f;
+      lastTurn = 0.0f;
+      lastTimeMs = millis();
+
+      }
+      void turnRight(){
+        drive(255,-255);
+        delay (200);
+        while (true){
+          readSensor();
+          if (DigitalValue[2]==0){
+            break;
+          }
+        }
+        drive (0,0);
+        delay(100);
+
+        integral = 0.0f;
+        lastEUse = 0.0f;     // reset pid EFFECTIVE error used by PID
+        dFilt = 0.0f;
+        lastTurn = 0.0f;
+        lastTimeMs = millis();
+
+      }
