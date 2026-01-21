@@ -1,5 +1,32 @@
-#include <WiFi.h>
+ #include <WiFi.h>
 #include <HTTPClient.h>
+//Path finding help 
+
+const int MAX_ROUTE = 20;     // adjust if needed
+int routeNodes[MAX_ROUTE];
+int routeLen = 0;
+
+int parseRoute(const String& routeStr, int out[], int maxOut) {
+  int count = 0;
+  int start = 0;
+
+  while (start < routeStr.length() && count < maxOut) {
+    int comma = routeStr.indexOf(',', start);
+    if (comma == -1) comma = routeStr.length();
+
+    String token = routeStr.substring(start, comma);
+    token.trim();
+
+    if (token.length() > 0) {
+      out[count++] = token.toInt();
+    }
+
+    start = comma + 1;
+  }
+
+  return count;
+}
+
 
 // Wi-Fi details
 const char* ssid     = "iot";
@@ -78,6 +105,7 @@ void sendArrival(int position) {
 
   if (httpResponseCode > 0) {
     String response = http.getString();
+    response.trim();
 
     Serial.print("HTTP Status: ");
     Serial.println(httpResponseCode);
@@ -110,9 +138,28 @@ void setup() {
   String route = getRoute();   // e.g. "3,1,4,2" or similar
 
   // Now notify server you arrived at the start
-  sendArrival(0);
+  //sendArrival(0);
+  //delay(5000);
+  //sendArrival(1);
+  //delay(5000);
+  //sendArrival(2);
+
+String routeStr = getRoute();
+
+routeLen = parseRoute(routeStr, routeNodes, MAX_ROUTE);
+
+Serial.print("Route length: ");
+Serial.println(routeLen);
+
+Serial.print("Route nodes: ");
+for (int i = 0; i < routeLen; i++) {
+  Serial.print(routeNodes[i]);
+  if (i < routeLen - 1) Serial.print(", ");
+}
+Serial.println();
 
 }
+
 void loop() {
   // Later you can call sendArrival(newPosition);
 }
