@@ -373,7 +373,7 @@ int position=0;
         else{followNode(from,to);}
       }
       else {drive(255,255);
-      delay(100);
+      delay(200);
         followNode(from,to); }
     
     }
@@ -382,7 +382,6 @@ int position=0;
   //int previous = 4;
   //int position = 0;
   int target = 0;
-
 
   //adjacency mapping
   enum Node { 0, 1, 2, 3, 4, 5, 6, 7, NODE_COUNT };
@@ -486,6 +485,8 @@ int position=0;
     // Return length of the final path
     return len;
   }
+
+  
 //-----------loop--------------  void loop(){
 void loop() {
   drive(0,0);
