@@ -156,16 +156,8 @@
 
     lastTimeMs = millis();
     }
-//--------------Loop----------------
-  void loop(){
-    /*if (detectNode()){
-      drive(0,0);
-      turnRight();
-      follow();
-      }
-    else{follow();}*/
-    follow();
-    }
+
+  
 
 
 // -------------------- follow line --------------------
@@ -275,7 +267,7 @@
     lastTimeMs = millis();
   }
   void turnLeft(){
-      drive(255,-255);
+      drive(-255,255);
       delay (200);
       while (true){
         readSensor();
@@ -313,32 +305,84 @@
       }
 
 //-----drive to neighbouring node--------
-  void followNode(int to){
-    if (prev==to){turn180();}
+int previous =4;
+int position=0;
+  void followNode(int from,int to){
+    if (previous==to){turn180();}
     while (true){
           follow();
           if (detectNode()){
-            prev = to;
-            sendArrival(prev)
+            previous = from;
+            position = to;
+            //sendArrival(from,to)
             break;
             }
   }
+  }
   void driveEdge(int from, int to){
-      if (from==0){
-        if (to==7){
-            followNode(to);
-          }
+      if ((from==6)&& (to==1)){
+        if(previous==4){
+          turnRight();
+          followNode(from,to);
         }
-        
+        else if(previous==3){
+          turnLeft();
+          followNode(from,to);
+        } 
+        else{followNode(from,to);}
       }
 
+      else if ((from==7)&& (to==1)){
+        if(previous==2){
+          turnRight();
+          followNode(from,to);
+        }
+        else if(previous==0){
+          turnLeft();
+          followNode(from,to);
+        } 
+        else{followNode(from,to);}
+      }
 
-
-  }
+      else if ((from==6)&& (to==3)){
+        if(previous==1){
+          turnRight();
+          followNode(from,to);
+        }
+        else{followNode(from,to);}
+      }
+      else if ((from==6)&& (to==4)){
+        if(previous==1){
+          turnLeft();
+          followNode(from,to);
+        }
+        else{followNode(from,to);}
+      }
+      else if ((from==7)&& (to==2)){
+        if(previous==1){
+          turnLeft();
+          followNode(from,to);
+        }
+        else{followNode(from,to);}
+      }
+      else if ((from==7)&& (to==0)){
+        if(previous==1){
+          turnRight();
+          followNode(from,to);
+        }
+        else{followNode(from,to);}
+      }
+      else {drive(255,255);
+      delay(100);
+        followNode(from,to); }
+    
+    }
 
 //------pathfinding-----
-  int position = 0
-  int target = 0
+  //int previous = 4;
+  //int position = 0;
+  int target = 0;
+
 
   //adjacency mapping
   enum Node { 0, 1, 2, 3, 4, 5, 6, 7, NODE_COUNT };
@@ -442,5 +486,17 @@
     // Return length of the final path
     return len;
   }
-
-
+//-----------loop--------------  void loop(){
+void loop() {
+  drive(0,0);
+  delay(1000);
+  driveEdge(0,7);
+  driveEdge(7,1);
+  driveEdge(1,6);
+  driveEdge(6,3);
+  driveEdge(3,2);
+  driveEdge(2,3);
+  driveEdge(3,6);
+  driveEdge(6,4);
+  driveEdge(4,0);
+}
