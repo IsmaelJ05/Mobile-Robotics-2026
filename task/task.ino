@@ -15,7 +15,7 @@
   int weights[5] = {2, 1, 0, -1, -2};
 
   // Digital threshold
-  int threshold = 1100;                  // adjust 1100–1600 if needed
+  int threshold = 800;                  // adjust 1100–1600 if needed
   const bool SENSOR_HIGH_ON_LINE = true; // RAW HIGH when on line (your sensor ranges)
 
   // Corner slow-down
@@ -152,9 +152,7 @@
     analogWrite(motor2PWM, 0);
 
     lastTimeMs = millis();
-    followNode(4,0);
-    drive(0,0);
-    delay(1000);
+
     }
 
 // -------------------- follow line ,--------------------
@@ -283,6 +281,8 @@
 
     
   void turn180(){
+    drive(0,0);
+    delay(50);
     drive(-255,255);
     delay (550);
     while (true){
@@ -301,6 +301,8 @@
     lastTimeMs = millis();
   }
   void turnLeft(){
+      drive(0,0);
+      delay(50);
       drive(-255,255);
       delay (200);
       while (true){
@@ -319,6 +321,8 @@
 
       }
       void turnRight(){
+        drive(0,0);
+        delay(50);
         drive(255,-255);
         delay (200);
         while (true){
@@ -576,17 +580,18 @@
     }
     for(int i=0; i<len; i++){
       driveEdge(position,path[i]);
-      if (position== goal){break;}
+      if (position == goal){break;}
     }
   }
 
   
-  int target[5]={1,4,3,1,0};
+  int target[5]={1,3,4,1,0};
 //-----------loop-------------- 
   void loop(){
-
+    
     for (int i=0; i<5;i++){
       drivePath(position,target[i]);
+      drive(0,0);
       delay(1000);
     }
     drive(0,0);
