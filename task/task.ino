@@ -1,7 +1,7 @@
 
 #include <Arduino.h>
 
-// -------------------- TUNING (START VALUES) --------------------
+// -------------------- TUNING (START VALUES) ------------------
   int delaySet  = 0;
   int baseSpeed = 250;          // start lower while tuning
 
@@ -15,7 +15,7 @@
   int weights[5] = {2, 1, 0, -1, -2};
 
   // Digital threshold
-  int threshold = 700;                  // adjust 1100–1600 if needed
+  int threshold = 1100;                  // adjust 1100–1600 if needed
   const bool SENSOR_HIGH_ON_LINE = true; // RAW HIGH when on line (your sensor ranges)
 
   // Corner slow-down
@@ -157,10 +157,7 @@
     delay(1000);
     }
 
-  
-
-
-// -------------------- follow line --------------------
+// -------------------- follow line ,--------------------
   void follow() {
     delay(delaySet);
 
@@ -244,10 +241,47 @@
   }
 
 //------turn at node----
-  bool detectNode(){
-    readSensor();
-    return ((DigitalValue[0]==0)&&(DigitalValue[4]==0));
+  bool detectNode() {
+    static bool s0_latched = false;
+    static bool s4_latched = false;
+    static unsigned long t0 = 0;
+    static unsigned long t4 = 0;
+
+    const unsigned long WINDOW_MS = 100; // <-- allow sensors to differ by up to 50ms
+
+    readSensor(); // updates DigitalValue[]
+
+    unsigned long now = millis();
+
+    // Latch each sensor when it triggers (goes to 0)
+    if (DigitalValue[0] == 0 && !s0_latched) {
+      s0_latched = true;
+      t0 = now;
     }
+    if (DigitalValue[4] == 0 && !s4_latched) {
+      s4_latched = true;
+      t4 = now;
+    }
+
+    // If both latched and close enough in time => node detected
+    if (s0_latched && s4_latched && ( (t0 > t4 ? t0 - t4 : t4 - t0) <= WINDOW_MS )) {
+      // reset for next detection
+      s0_latched = false;
+      s4_latched = false;
+      return true;
+    }
+
+    // Expire latches if the other sensor didn't arrive in time
+    if (s0_latched && (now - t0 > WINDOW_MS)) s0_latched = false;
+    if (s4_latched && (now - t4 > WINDOW_MS)) s4_latched = false;
+
+    return false;
+  }
+
+
+
+
+    
   void turn180(){
     drive(-255,255);
     delay (550);
@@ -305,7 +339,7 @@
       }
 
 //-----drive to neighbouring node--------
-  int previous =-1;
+  int previous =4;
   int position=0;
     void followNode(int from,int to){
         if (previous==to){turn180();}
@@ -373,7 +407,7 @@
             else{followNode(from,to);}
           }
           else {drive(255,255);
-          delay(200);
+          delay(100);
             followNode(from,to); }
         
         }
@@ -547,12 +581,15 @@
   }
 
   
+  int target[5]={1,4,3,1,0};
 //-----------loop-------------- 
-void loop(){
-  drivePath(0,2);
-  drive(0,0);
-  delay(1000);
-  drivePath(2,6);
-  drive(0,0);
-  delay(5000);
-  }
+  void loop(){
+
+    for (int i=0; i<5;i++){
+      drivePath(position,target[i]);
+      delay(1000);
+    }
+    drive(0,0);
+    delay(5000);
+
+    }
