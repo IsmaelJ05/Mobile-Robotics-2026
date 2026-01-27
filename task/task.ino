@@ -54,7 +54,6 @@
   const int N = 5;
   int AnalogPin[N] = {4, 5, 6, 7, 15};
 
-  int AnalogValue[N]  = {0,0,0,0,0};
   int DigitalValue[N] = {0,0,0,0,0};
 
 // -------------------- PID STATE --------------------
@@ -64,7 +63,7 @@
   float lastTurn = 0.0f;
   unsigned long lastTimeMs = 0;
 
-// -------------------- Clamp --------------------
+// -------------------- Clamp 255--------------------
   int clamp255(int v) {
     if (v < 0) return 0;
     if (v > 255) return 255;
@@ -123,8 +122,6 @@
 
     for (int i = 0; i < N; i++) {
       int raw = analogRead(AnalogPin[i]);
-      AnalogValue[i] = raw;
-
       DigitalValue[i] = sensorToDigital(raw);
       sumOn += DigitalValue[i];
 
@@ -155,6 +152,9 @@
     analogWrite(motor2PWM, 0);
 
     lastTimeMs = millis();
+    followNode(4,0);
+    drive(0,0);
+    delay(1000);
     }
 
   
@@ -305,199 +305,254 @@
       }
 
 //-----drive to neighbouring node--------
-int previous =4;
-int position=0;
-  void followNode(int from,int to){
-    if (previous==to){turn180();}
-    while (true){
-          follow();
-          if (detectNode()){
-            previous = from;
-            position = to;
-            //sendArrival(from,to)
-            break;
+  int previous =-1;
+  int position=0;
+    void followNode(int from,int to){
+        if (previous==to){turn180();}
+        while (true){
+              follow();
+              if (detectNode()){
+                previous = from;
+                position = to;
+                //sendArrival(from,to)
+                break;
+                }
+      }
+      }
+      void driveEdge(int from, int to){
+          if ((from==6)&& (to==1)){
+            if(previous==4){
+              turnRight();
+              followNode(from,to);
             }
-  }
-  }
-  void driveEdge(int from, int to){
-      if ((from==6)&& (to==1)){
-        if(previous==4){
-          turnRight();
-          followNode(from,to);
-        }
-        else if(previous==3){
-          turnLeft();
-          followNode(from,to);
-        } 
-        else{followNode(from,to);}
-      }
+            else if(previous==3){
+              turnLeft();
+              followNode(from,to);
+            } 
+            else{followNode(from,to);}
+          }
 
-      else if ((from==7)&& (to==1)){
-        if(previous==2){
-          turnRight();
-          followNode(from,to);
-        }
-        else if(previous==0){
-          turnLeft();
-          followNode(from,to);
-        } 
-        else{followNode(from,to);}
-      }
+          else if ((from==7)&& (to==1)){
+            if(previous==2){
+              turnRight();
+              followNode(from,to);
+            }
+            else if(previous==0){
+              turnLeft();
+              followNode(from,to);
+            } 
+            else{followNode(from,to);}
+          }
 
-      else if ((from==6)&& (to==3)){
-        if(previous==1){
-          turnRight();
-          followNode(from,to);
+          else if ((from==6)&& (to==3)){
+            if(previous==1){
+              turnRight();
+              followNode(from,to);
+            }
+            else{followNode(from,to);}
+          }
+          else if ((from==6)&& (to==4)){
+            if(previous==1){
+              turnLeft();
+              followNode(from,to);
+            }
+            else{followNode(from,to);}
+          }
+          else if ((from==7)&& (to==2)){
+            if(previous==1){
+              turnLeft();
+              followNode(from,to);
+            }
+            else{followNode(from,to);}
+          }
+          else if ((from==7)&& (to==0)){
+            if(previous==1){
+              turnRight();
+              followNode(from,to);
+            }
+            else{followNode(from,to);}
+          }
+          else {drive(255,255);
+          delay(200);
+            followNode(from,to); }
+        
         }
-        else{followNode(from,to);}
-      }
-      else if ((from==6)&& (to==4)){
-        if(previous==1){
-          turnLeft();
-          followNode(from,to);
-        }
-        else{followNode(from,to);}
-      }
-      else if ((from==7)&& (to==2)){
-        if(previous==1){
-          turnLeft();
-          followNode(from,to);
-        }
-        else{followNode(from,to);}
-      }
-      else if ((from==7)&& (to==0)){
-        if(previous==1){
-          turnRight();
-          followNode(from,to);
-        }
-        else{followNode(from,to);}
-      }
-      else {drive(255,255);
-      delay(200);
-        followNode(from,to); }
-    
-    }
 
 //------pathfinding-----
-  //int previous = 4;
-  //int position = 0;
-  int target = 0;
 
-  //adjacency mapping
-  enum Node { 0, 1, 2, 3, 4, 5, 6, 7, NODE_COUNT };
+  enum Node { N0, N1, N2, N3, N4, N5, N6, N7, NODE_COUNT };
 
-  struct Edge { uint8_t to; uint8_t w; }; // path to node (to) had weight (w)
-      // array of all edges adjacent to nodes 0,1,2...
-  const Edge adj6[]  = { {3,2}, {4,2}, {1,1} }; 
-  const Edge adj7[]  = { {2,1}, {1,1}, {0,1} };
-  const Edge adj0[]  = { {7,1},  {4,1} };
-  const Edge adj1[]  = { {7,1}, {6,1}};
-  const Edge adj2[]  = { {3,1}, {7,1} };
-  const Edge adj3[]  = { {6,2},  {2,1} };
-  const Edge adj4[]  = { {6,1},  {0,1} };
-  const Edge adj5[]  = {              };
+  struct Edge {
+    uint8_t to;
+    uint8_t w;
+  };
 
-  const Edge* graph[NODE_COUNT] = { adj6, adj7, adj0, adj1, adj2, adj3, adj4 ,adj5};
-  const uint8_t deg[NODE_COUNT] = { 3,    3,    2,    1,    2,    2,    2   ,0 };
+  // Adjacency lists
+  const Edge adj0[] = { {7,1}, {4,1} };
+  const Edge adj1[] = { {7,1}, {6,1} };
+  const Edge adj2[] = { {3,1}, {7,1} };
+  const Edge adj3[] = { {6,2}, {2,1} };
+  const Edge adj4[] = { {6,1}, {0,1} };
+  const Edge adj5[] = { };
+  const Edge adj6[] = { {3,2}, {4,2}, {1,1} };
+  const Edge adj7[] = { {2,1}, {1,1}, {0,1} };
 
-  // Computes the shortest distance from 'start' to every other node
-  // dist[]  -> shortest known distance from start to each node
-  // prev[]  -> previous node on the shortest path (for path reconstruction)
-  void dijkstra(int start, int dist[NODE_COUNT], int prev[NODE_COUNT]) {
+  // Graph table
+  const Edge* graph[NODE_COUNT] = {
+    adj0, adj1, adj2, adj3, adj4, adj5, adj6, adj7
+  };
 
-    // Marks whether a node has been permanently processed
+  const uint8_t deg[NODE_COUNT] = {2,2,2,2,2,0,3,3};
+  // ------------------------------------------------------------
+  // DIJKSTRA SHORTEST PATH
+  // Given:
+  //   start = starting node index
+  //   goal  = target node index
+  //   path  = output array that will store the node sequence
+  //   maxLen = maximum size of 'path' array
+  //
+  // Returns:
+  //   number of nodes in the path (>=1) if a path exists,
+  //   0 if no path exists or if path buffer is too small.
+  //
+  // Path format:
+  //   path[0] = start, path[len-1] = goal
+  // ------------------------------------------------------------
+  uint8_t dijkstraPath(uint8_t start, uint8_t goal,
+                      uint8_t* path, uint8_t maxLen) {
+
+    // A very large number used to represent "infinity"
+    // (meaning: currently unknown / unreachable distance)
+    const int INF = 32767;
+
+    // dist[i] = best (smallest) known distance from start -> i
+    int dist[NODE_COUNT];
+
+    // prev[i] = previous node on the best path to i
+    // This is used later to reconstruct the final path.
+    // If prev[i] == -1, there is no predecessor known.
+    int prev[NODE_COUNT];
+
+    // used[i] = true when node i is finalized (we will not improve its distance)
     bool used[NODE_COUNT];
 
-    // ---- Initialization ----
+    // -------------------- INITIALIZATION --------------------
+    // Set:
+    //   - dist[] to INF (unknown)
+    //   - prev[] to -1 (no predecessor)
+    //   - used[] to false (nothing processed yet)
     for (int i = 0; i < NODE_COUNT; i++) {
-      dist[i] = INF;   // Start with "infinite" distance to all nodes
-      prev[i] = -1;    // No previous node yet
-      used[i] = false; // No node has been visited
+      dist[i] = INF;
+      prev[i] = -1;
+      used[i] = false;
     }
 
-    // Distance from start node to itself is zero
+    // Distance from start to itself is 0
     dist[start] = 0;
 
-    // ---- Main Dijkstra loop ----
-    // Runs at most NODE_COUNT times
-    for (int iter = 0; iter < NODE_COUNT; iter++) {
+    // -------------------- MAIN DIJKSTRA LOOP --------------------
+    // We run at most NODE_COUNT iterations. Each iteration:
+    // 1) Choose the unused node with the smallest dist[]
+    // 2) "Finalize" it (mark used)
+    // 3) Relax its neighbors (try to improve paths through it)
+    for (int i = 0; i < NODE_COUNT; i++) {
 
-      // Find the unused node with the smallest distance
+      // ----- Step 1: pick best unused node u -----
+      // u will be the node that is:
+      //   - not used yet
+      //   - has the smallest dist[u]
       int u = -1;
-      int best = INF;
-
-      for (int i = 0; i < NODE_COUNT; i++) {
-        // Choose the closest unvisited node
-        if (!used[i] && dist[i] < best) {
-          best = dist[i];
-          u = i;
+      for (int j = 0; j < NODE_COUNT; j++) {
+        if (!used[j] && (u == -1 || dist[j] < dist[u])) {
+          u = j;
         }
       }
 
-      // If no reachable unvisited node remains, stop
-      if (u == -1) break;
+      // If u is still -1, there are no reachable unused nodes left.
+      // That means goal might be unreachable.
+      // Or: if u == goal, we can stop early (we already found the best path).
+      if (u == -1 || u == goal) break;
 
-      // Mark this node as permanently visited
+      // ----- Step 2: finalize u -----
+      // Once a node is selected as the smallest unused distance,
+      // in Dijkstra this distance is final (cannot be improved later).
       used[u] = true;
 
-      // ---- Relax all edges from node u ----
-      // Look at each neighbor of u
+      // ----- Step 3: relax all edges from u -----
+      // "Relax" means: check if going from start -> u -> v is better
+      // than the current best known path start -> v.
       for (int k = 0; k < deg[u]; k++) {
 
-        int v = graph[u][k].to; // Neighbor node
-        int w = graph[u][k].w;  // Weight of edge u -> v
+        // v = neighbor node
+        int v = graph[u][k].to;
 
-        // If going through u gives a shorter path to v, update it
+        // w = edge weight cost from u to v
+        int w = graph[u][k].w;
+
+        // If dist[u] is already INF, u was unreachable (shouldn't happen here)
+        // Check if going via u improves dist[v]:
+        //   dist[u] + w < dist[v]
         if (dist[u] + w < dist[v]) {
-          dist[v] = dist[u] + w; // Update shortest distance
-          prev[v] = u;           // Remember path: v came from u
+          dist[v] = dist[u] + w; // update best known distance to v
+          prev[v] = u;           // record that best predecessor of v is u
         }
       }
     }
-  }
 
+    // -------------------- CHECK REACHABILITY --------------------
+    // If goal still has INF distance, no path exists.
+    if (dist[goal] == INF) return 0;
 
-    // Builds the shortest path from start -> target using the prev[] array
-  // outPath[] will contain the nodes in order: start ... target
-  // Returns the number of nodes in the path
-  int buildPath(int start, int target, int prev[NODE_COUNT], int outPath[16]) {
+    // -------------------- PATH RECONSTRUCTION --------------------
+    // We reconstruct the path by walking backward:
+    //   goal -> prev[goal] -> prev[prev[goal]] ... until start
+    //
+    // This gives a reversed path, so we store into 'rev[]' first.
+    uint8_t rev[16];   // small buffer (safe for NODE_COUNT=8)
+    uint8_t len = 0;
 
-    int tmp[16]; // Temporary storage for reversed path
-    int n = 0;   // Number of nodes in temporary path
+    // Start from goal and repeatedly step to its predecessor
+    for (int v = goal; v != -1; v = prev[v]) {
+      rev[len++] = v;
 
-    // ---- Walk backwards from target to start ----
-    for (int cur = target; cur != -1 && n < 16; cur = prev[cur]) {
-      tmp[n++] = cur;     // Store current node
-      if (cur == start)   // Stop once we reach the start
-        break;
+      // (Optional safety) avoid overflow if something went wrong
+      if (len >= sizeof(rev)) break;
     }
 
-    // If we never reached the start, there is no valid path
-    if (tmp[n - 1] != start)
-      return 0; // unreachable
+    // If path longer than caller's buffer, fail
+    if (len > maxLen) return 0;
 
-    // ---- Reverse the path so it goes start -> target ----
-    int len = 0;
-    for (int i = n - 1; i >= 0; i--) {
-      outPath[len++] = tmp[i];
+    // Now reverse it into the output 'path[]'
+    // rev currently holds: goal, ..., start
+    // output wants: start, ..., goal
+    for (int i = 0; i < len; i++) {
+      path[i] = rev[len - 1 - i];
     }
 
-    // Return length of the final path
+    // Return the number of nodes in the path
     return len;
+ }
+//----- drive path any node to node-----
+  void drivePath(uint8_t start, uint8_t goal) {
+    uint8_t path[16];
+    uint8_t len = dijkstraPath(start, goal, path, 16);
+    if (len == 0) {
+      Serial.println("No path found!");
+      return;
+    }
+    for(int i=0; i<len; i++){
+      driveEdge(position,path[i]);
+      if (position== goal){break;}
+    }
   }
 
   
-//-----------loop--------------  void loop(){
-void loop() {
+//-----------loop-------------- 
+void loop(){
+  drivePath(0,2);
   drive(0,0);
   delay(1000);
-  driveEdge(0,7);
-  driveEdge(7,1);
-  driveEdge(1,6);
-  driveEdge(6,3);
-  driveEdge(3,2);
-  driveEdge(2,3);
-  driveEdge(3,6);
-  driveEdge(6,4);
-  driveEdge(4,0);
-}
+  drivePath(2,6);
+  drive(0,0);
+  delay(5000);
+  }
