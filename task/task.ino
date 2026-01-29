@@ -598,8 +598,8 @@ void drive(int rightSpeed, int leftSpeed) {
       Serial.println("No path found!");
       return;
     }
-<<<<<<< HEAD
-    for (int i = 0; i < len; i++) {
+    
+    for (int i = 1; i < len; i++) {
       driveEdge(position, path[i]);
       if (position == goal) {
         //tell server arrived
