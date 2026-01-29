@@ -2,8 +2,8 @@
 #include <Arduino.h>
 
 // -------------------- TUNING (START VALUES) ------------------
-  int delaySet  = 0;
-  int baseSpeed = 250;          // start lower while tuning
+  int delaySet = 0;
+  int baseSpeed = 250;  // start lower while tuning
 
   // Keep Ki = 0 for digital sensors until everything else is stable
   float Ki = 0.0;
@@ -12,21 +12,21 @@
   float integralLimit = 200.0f;
 
   // Weights for 5 sensors
-  int weights[5] = {2, 1, 0, -1, -2};
+  int weights[5] = { 2, 1, 0, -1, -2 };
 
   // Digital threshold
-  int threshold = 800;                  // adjust 1100–1600 if needed
-  const bool SENSOR_HIGH_ON_LINE = true; // RAW HIGH when on line (your sensor ranges)
+  int threshold = 800;                    // adjust 1100–1600 if needed
+  const bool SENSOR_HIGH_ON_LINE = true;  // RAW HIGH when on line (your sensor ranges)
 
   // Corner slow-down
-  int slowDown1 = 40;          // when abs(error)==1 (inner sensors active)
-  int slowDown2 = 150;          // when abs(error)>=2 (outer sensors active)
+  int slowDown1 = 40;   // when abs(error)==1 (inner sensors active)
+  int slowDown2 = 150;  // when abs(error)>=2 (outer sensors active)
 
   // Gain scheduling (soft in center, stronger in corners)
-  float Kp_center = 28.0f;     // used when absErr<=1
+  float Kp_center = 28.0f;  // used when absErr<=1
   float Kd_center = 12.0f;
 
-  float Kp_corner = 40.0f;     // used when absErr>=2
+  float Kp_corner = 40.0f;  // used when absErr>=2
   float Kd_corner = 24.0f;
 
   // Turn clamp scheduling
@@ -37,86 +37,91 @@
   const float dAlpha_use = 0.88f;
 
   // Turn slew-rate limit (prevents sharp snapping)
-  float turnSlewRate = 350.0f; // turn units per second (tune 150..400)
+  float turnSlewRate = 350.0f;  // turn units per second (tune 150..400)
 
   // --- NEW: Inner sensor softness (abs(error)==1) ---
   float innerErrorScale = 0.60f;  // soft straighten-up strength (tune 0.15..0.60)
 
   // Optional: also soften D when absErr==1 (helps remove twitch)
-  float innerDScale = 0.60f;      // tune 0.40..1.00
+  float innerDScale = 0.60f;  // tune 0.40..1.00
 
 // -------------------- PINS --------------------
-  int motor1PWM   = 37;  // Right motor PWM
-  int motor1Phase = 38;  // Right motor direction
-  int motor2PWM   = 39;  // Left motor PWM
-  int motor2Phase = 20;  // Left motor direction
+int motor1PWM = 37;    // Right motor PWM
+int motor1Phase = 38;  // Right motor direction
+int motor2PWM = 39;    // Left motor PWM
+int motor2Phase = 20;  // Left motor direction
 
-  const int N = 5;
-  int AnalogPin[N] = {4, 5, 6, 7, 15};
+const int N = 5;
+int AnalogPin[N] = { 4, 5, 6, 7, 15 };
 
-  int DigitalValue[N] = {0,0,0,0,0};
+int DigitalValue[N] = { 0, 0, 0, 0, 0 };
 
 // -------------------- PID STATE --------------------
-  float integral = 0.0f;
-  float lastEUse = 0.0f;     // store EFFECTIVE error used by PID
-  float dFilt = 0.0f;
-  float lastTurn = 0.0f;
-  unsigned long lastTimeMs = 0;
+float integral = 0.0f;
+float lastEUse = 0.0f;  // store EFFECTIVE error used by PID
+float dFilt = 0.0f;
+float lastTurn = 0.0f;
+unsigned long lastTimeMs = 0;
 
 // -------------------- Clamp 255--------------------
-  int clamp255(int v) {
-    if (v < 0) return 0;
-    if (v > 255) return 255;
-    return v;
-  }
+int clamp255(int v) {
+  if (v < 0) return 0;
+  if (v > 255) return 255;
+  return v;
+}
 
 // -------------------- MOTOR CONTROL --------------------
-  void rightFoward(int speed){
-    digitalWrite(motor1Phase, HIGH);
-    analogWrite(motor1PWM, speed);
-  }
-  void rightReverse(int speed){
-    digitalWrite(motor1Phase, LOW);
-    analogWrite(motor1PWM, abs(speed));
-  }
-  void leftFoward(int speed){
-    digitalWrite(motor2Phase, LOW);
-    analogWrite(motor2PWM, speed);
-  }
-  void leftReverse(int speed){
-    digitalWrite(motor2Phase, HIGH);
-    analogWrite(motor2PWM, abs(speed));
-  }
+void rightFoward(int speed) {
+  digitalWrite(motor1Phase, HIGH);
+  analogWrite(motor1PWM, speed);
+}
+void rightReverse(int speed) {
+  digitalWrite(motor1Phase, LOW);
+  analogWrite(motor1PWM, abs(speed));
+}
+void leftFoward(int speed) {
+  digitalWrite(motor2Phase, LOW);
+  analogWrite(motor2PWM, speed);
+}
+void leftReverse(int speed) {
+  digitalWrite(motor2Phase, HIGH);
+  analogWrite(motor2PWM, abs(speed));
+}
 
-  // Forward-only (stable for PID)
-  void drive(int rightSpeed, int leftSpeed) {
-    if (rightSpeed>0){rightFoward(rightSpeed);}
-      else{rightReverse(rightSpeed);}
-    if (leftSpeed>0){leftFoward(leftSpeed);}
-      else{leftReverse(leftSpeed);}
+// Forward-only (stable for PID)
+void drive(int rightSpeed, int leftSpeed) {
+  if (rightSpeed > 0) {
+    rightFoward(rightSpeed);
+  } else {
+    rightReverse(rightSpeed);
   }
-
+  if (leftSpeed > 0) {
+    leftFoward(leftSpeed);
+  } else {
+    leftReverse(leftSpeed);
+  }
+}
 // -------------------- READ DIGITAL ERROR --------------------
 
-    int sensorToDigital(int raw) {
+  int sensorToDigital(int raw) {
     // Returns 1 if sensor "sees the line", else 0
     if (SENSOR_HIGH_ON_LINE) return (raw > threshold) ? 1 : 0;
     return (raw < threshold) ? 1 : 0;
   }
 
-  void readSensor(){
+  void readSensor() {
     for (int i = 0; i < 5; i++) {
       DigitalValue[i] = sensorToDigital(analogRead(AnalogPin[i]));
     }
   }
   /*
-    Threshold sensors into 0/1, then:
-      error = Σ(DigitalValue[i] * weights[i])
+      Threshold sensors into 0/1, then:
+        error = Σ(DigitalValue[i] * weights[i])
 
-    lineLost => no sensors see the line (sumOn == 0)
-  */
+      lineLost => no sensors see the line (sumOn == 0)
+    */
 
-  float readLineErrorDigital(bool &lineLostOut) {
+  float readLineErrorDigital(bool& lineLostOut) {
     int sumOn = 0;
     int e = 0;
 
@@ -128,7 +133,7 @@
       e += DigitalValue[i] * weights[i];
     }
 
-    lineLostOut = (sumOn == 0);    
+    lineLostOut = (sumOn == 0);
 
     // If lost, keep lastEUse sign so recovery turns the right way
     if (lineLostOut) return lastEUse;
@@ -138,22 +143,24 @@
 
 // -------------------- SETUP --------------------
   void setup() {
-    Serial.begin(9600);
+  Serial.begin(9600);
 
-    pinMode(motor1PWM, OUTPUT);
-    pinMode(motor1Phase, OUTPUT);
-    pinMode(motor2PWM, OUTPUT);
-    pinMode(motor2Phase, OUTPUT);
+  pinMode(motor1PWM, OUTPUT);
+  pinMode(motor1Phase, OUTPUT);
+  pinMode(motor2PWM, OUTPUT);
+  pinMode(motor2Phase, OUTPUT);
 
-    analogReadResolution(12);        // 0..4095
-    analogSetAttenuation(ADC_11db);  // best for ~0..3.3V
+  analogReadResolution(12);        // 0..4095
+  analogSetAttenuation(ADC_11db);  // best for ~0..3.3V
 
-    analogWrite(motor1PWM, 0);
-    analogWrite(motor2PWM, 0);
+  analogWrite(motor1PWM, 0);
+  analogWrite(motor2PWM, 0);
 
-    lastTimeMs = millis();
-
-    }
+  lastTimeMs = millis();
+  followNode(4, 0);
+  drive(0, 0);
+  delay(1000);
+  }
 
 // -------------------- follow line ,--------------------
   void follow() {
@@ -172,11 +179,11 @@
     // 3) Line lost recovery: arc-spin based on lastEUse sign (forward-only)
     if (lineLost) {
       // Quick spin-search to reacquire (stronger than arcing)
-      int search = 120;            // tune 90..160
-      int base   = baseSpeed - 40; // slow a bit while searching
+      int search = 120;           // tune 90..160
+      int base = baseSpeed - 40;  // slow a bit while searching
 
       if (lastEUse >= 0) drive(base - search, base + search);
-      else               drive(base + search, base - search);
+      else drive(base + search, base - search);
 
       // Don’t run PID this cycle
       return;
@@ -198,7 +205,7 @@
 
     // 6) PID core (integral, derivative computed on eUse)
     integral += eUse * dt;
-    if (integral >  integralLimit) integral =  integralLimit;
+    if (integral > integralLimit) integral = integralLimit;
     if (integral < -integralLimit) integral = -integralLimit;
 
     float dRaw = (eUse - lastEUse) / dt;
@@ -218,23 +225,23 @@
 
     // 7) Variable maxTurn: smaller on straights, larger in corners
     float maxTurn_use = (absErr >= 2) ? maxTurn_corner : maxTurn_center;
-    if (turn >  maxTurn_use) turn =  maxTurn_use;
+    if (turn > maxTurn_use) turn = maxTurn_use;
     if (turn < -maxTurn_use) turn = -maxTurn_use;
 
     // 8) Turn slew-rate limiting (prevents sharp oscillation/snapping)
     float maxTurnStep = turnSlewRate * dt;
     float delta = turn - lastTurn;
-    if (delta >  maxTurnStep) turn = lastTurn + maxTurnStep;
+    if (delta > maxTurnStep) turn = lastTurn + maxTurnStep;
     if (delta < -maxTurnStep) turn = lastTurn - maxTurnStep;
     lastTurn = turn;
 
     // 9) Convert to motor speeds
     int rightSpeed = (int)(localBase - turn);
-    int leftSpeed  = (int)(localBase + turn);
+    int leftSpeed = (int)(localBase + turn);
 
     // 10) Drive
-    rightSpeed=clamp255(rightSpeed);
-    leftSpeed=clamp255(leftSpeed);
+    rightSpeed = clamp255(rightSpeed);
+    leftSpeed = clamp255(leftSpeed);
     drive(rightSpeed, leftSpeed);
   }
 
@@ -245,9 +252,9 @@
     static unsigned long t0 = 0;
     static unsigned long t4 = 0;
 
-    const unsigned long WINDOW_MS = 100; // <-- allow sensors to differ by up to 50ms
+    const unsigned long WINDOW_MS = 100;  // <-- allow sensors to differ by up to 50ms
 
-    readSensor(); // updates DigitalValue[]
+    readSensor();  // updates DigitalValue[]
 
     unsigned long now = millis();
 
@@ -262,7 +269,7 @@
     }
 
     // If both latched and close enough in time => node detected
-    if (s0_latched && s4_latched && ( (t0 > t4 ? t0 - t4 : t4 - t0) <= WINDOW_MS )) {
+    if (s0_latched && s4_latched && ((t0 > t4 ? t0 - t4 : t4 - t0) <= WINDOW_MS)) {
       // reset for next detection
       s0_latched = false;
       s4_latched = false;
@@ -275,150 +282,164 @@
 
     return false;
   }
-
-
-
-
-    
-  void turn180(){
-    drive(0,0);
+  void turn180() {
+    drive(0, 0);
     delay(50);
-    drive(-255,255);
-    delay (550);
-    while (true){
+    drive(-255, 255);
+    delay(550);
+    while (true) {
       readSensor();
-      if (DigitalValue[2]==0){
+      if (DigitalValue[2] == 0) {
         break;
       }
     }
-    drive (0,0);
+    drive(0, 0);
     delay(100);
 
     integral = 0.0f;
-    lastEUse = 0.0f;     // reset pid EFFECTIVE error used by PID
+    lastEUse = 0.0f;  // reset pid EFFECTIVE error used by PID
     dFilt = 0.0f;
     lastTurn = 0.0f;
     lastTimeMs = millis();
   }
-  void turnLeft(){
-      drive(0,0);
-      delay(50);
-      drive(-255,255);
-      delay (200);
-      while (true){
-        readSensor();
-        if (DigitalValue[2]==0){
-          break;
-          }
-        }
-      drive (0,0);
-      delay(100);
-      integral = 0.0f;
-      lastEUse = 0.0f;     // reset pid EFFECTIVE error used by PID
-      dFilt = 0.0f;
-      lastTurn = 0.0f;
-      lastTimeMs = millis();
-
+  void turnLeft() {
+    drive(0, 0);
+    delay(50);
+    drive(-255, 255);
+    delay(200);
+    while (true) {
+      readSensor();
+      if (DigitalValue[2] == 0) {
+        break;
       }
-      void turnRight(){
-        drive(0,0);
-        delay(50);
-        drive(255,-255);
-        delay (200);
-        while (true){
-          readSensor();
-          if (DigitalValue[2]==0){
-            break;
-          }
-        }
-        drive (0,0);
-        delay(100);
-
-        integral = 0.0f;
-        lastEUse = 0.0f;     // reset pid EFFECTIVE error used by PID
-        dFilt = 0.0f;
-        lastTurn = 0.0f;
-        lastTimeMs = millis();
-
+    }
+    drive(0, 0);
+    delay(100);
+    integral = 0.0f;
+    lastEUse = 0.0f;  // reset pid EFFECTIVE error used by PID
+    dFilt = 0.0f;
+    lastTurn = 0.0f;
+    lastTimeMs = millis();
+  }
+  void turnRight() {
+    drive(0, 0);
+    delay(50);
+    drive(255, -255);
+    delay(200);
+    while (true) {
+      readSensor();
+      if (DigitalValue[2] == 0) {
+        break;
       }
+    }
+    drive(0, 0);
+    delay(100);
+
+    integral = 0.0f;
+    lastEUse = 0.0f;  // reset pid EFFECTIVE error used by PID
+    dFilt = 0.0f;
+    lastTurn = 0.0f;
+    lastTimeMs = millis();
+  }
 
 //-----drive to neighbouring node--------
-  int previous =4;
-  int position=0;
-    void followNode(int from,int to){
-        if (previous==to){turn180();}
-        while (true){
-              follow();
-              if (detectNode()){
-                previous = from;
-                position = to;
-                //sendArrival(from,to)
-                break;
-                }
+  int previous = 4;
+  int position = 0;
+  void followNode(int from, int to) {
+    if (previous == to) { turn180(); }
+    while (true) {
+      follow();
+      if (detectNode()) {
+        previous = from;
+        position = to;
+        //sendArrival(from,to)
+        break;
       }
+    }
+  }
+  void driveEdge(int from, int to) {
+    if ((from == 6) && (to == 1)) {
+      if (previous == 4) {
+        turnRight();
+        followNode(from, to);
+      } else if (previous == 3) {
+        turnLeft();
+        followNode(from, to);
+      } else {
+        drive(255, 255);
+        delay(100);
+        followNode(from, to);
       }
-      void driveEdge(int from, int to){
-          if ((from==6)&& (to==1)){
-            if(previous==4){
-              turnRight();
-              followNode(from,to);
-            }
-            else if(previous==3){
-              turnLeft();
-              followNode(from,to);
-            } 
-            else{followNode(from,to);}
-          }
+    }
 
-          else if ((from==7)&& (to==1)){
-            if(previous==2){
-              turnRight();
-              followNode(from,to);
-            }
-            else if(previous==0){
-              turnLeft();
-              followNode(from,to);
-            } 
-            else{followNode(from,to);}
-          }
+    else if ((from == 7) && (to == 1)) {
+      if (previous == 2) {
+        turnRight();
+        followNode(from, to);
+      } else if (previous == 0) {
+        turnLeft();
+        followNode(from, to);
+      } else {
+        drive(255, 255);
+        delay(100);
+        followNode(from, to);
+      }
+    }
 
-          else if ((from==6)&& (to==3)){
-            if(previous==1){
-              turnRight();
-              followNode(from,to);
-            }
-            else{followNode(from,to);}
-          }
-          else if ((from==6)&& (to==4)){
-            if(previous==1){
-              turnLeft();
-              followNode(from,to);
-            }
-            else{followNode(from,to);}
-          }
-          else if ((from==7)&& (to==2)){
-            if(previous==1){
-              turnLeft();
-              followNode(from,to);
-            }
-            else{followNode(from,to);}
-          }
-          else if ((from==7)&& (to==0)){
-            if(previous==1){
-              turnRight();
-              followNode(from,to);
-            }
-            else{followNode(from,to);}
-          }
-          else {drive(255,255);
-          delay(100);
-            followNode(from,to); }
-        
-        }
+    else if ((from == 6) && (to == 3)) {
+      if (previous == 1) {
+        turnRight();
+        followNode(from, to);
+      } else {
+        drive(255, 255);
+        delay(100);
+        followNode(from, to);
+      }
+    } else if ((from == 6) && (to == 4)) {
+      if (previous == 1) {
+        turnLeft();
+        followNode(from, to);
+      } else {
+        drive(255, 255);
+        delay(100);
+        followNode(from, to);
+      }
+    } else if ((from == 7) && (to == 2)) {
+      if (previous == 1) {
+        turnLeft();
+        followNode(from, to);
+      } else {
+        drive(255, 255);
+        delay(100);
+        followNode(from, to);
+      }
+    } else if ((from == 7) && (to == 0)) {
+      if (previous == 1) {
+        turnRight();
+        followNode(from, to);
+      } else {
+        drive(255, 255);
+        delay(100);
+        followNode(from, to);
+      }
+    } else {
+      drive(255, 255);
+      delay(100);
+      followNode(from, to);
+    }
+  }
 
 //------pathfinding-----
 
-  enum Node { N0, N1, N2, N3, N4, N5, N6, N7, NODE_COUNT };
+  enum Node { N0,
+              N1,
+              N2,
+              N3,
+              N4,
+              N5,
+              N6,
+              N7,
+              NODE_COUNT };
 
   struct Edge {
     uint8_t to;
@@ -426,21 +447,21 @@
   };
 
   // Adjacency lists
-  const Edge adj0[] = { {7,1}, {4,1} };
-  const Edge adj1[] = { {7,1}, {6,1} };
-  const Edge adj2[] = { {3,1}, {7,1} };
-  const Edge adj3[] = { {6,2}, {2,1} };
-  const Edge adj4[] = { {6,1}, {0,1} };
-  const Edge adj5[] = { };
-  const Edge adj6[] = { {3,2}, {4,2}, {1,1} };
-  const Edge adj7[] = { {2,1}, {1,1}, {0,1} };
+  const Edge adj0[] = { { 7, 1 }, { 4, 1 } };
+  const Edge adj1[] = { { 7, 1 }, { 6, 1 } };
+  const Edge adj2[] = { { 3, 1 }, { 7, 1 } };
+  const Edge adj3[] = { { 6, 2 }, { 2, 1 } };
+  const Edge adj4[] = { { 6, 1 }, { 0, 1 } };
+  const Edge adj5[] = {};
+  const Edge adj6[] = { { 3, 2 }, { 4, 2 }, { 1, 1 } };
+  const Edge adj7[] = { { 2, 1 }, { 1, 1 }, { 0, 1 } };
 
   // Graph table
   const Edge* graph[NODE_COUNT] = {
     adj0, adj1, adj2, adj3, adj4, adj5, adj6, adj7
   };
 
-  const uint8_t deg[NODE_COUNT] = {2,2,2,2,2,0,3,3};
+  const uint8_t deg[NODE_COUNT] = { 2, 2, 2, 2, 2, 0, 3, 3 };
   // ------------------------------------------------------------
   // DIJKSTRA SHORTEST PATH
   // Given:
@@ -456,8 +477,7 @@
   // Path format:
   //   path[0] = start, path[len-1] = goal
   // ------------------------------------------------------------
-  uint8_t dijkstraPath(uint8_t start, uint8_t goal,
-                      uint8_t* path, uint8_t maxLen) {
+  uint8_t dijkstraPath(uint8_t start, uint8_t goal,uint8_t* path, uint8_t maxLen) {
 
     // A very large number used to represent "infinity"
     // (meaning: currently unknown / unreachable distance)
@@ -531,8 +551,8 @@
         // Check if going via u improves dist[v]:
         //   dist[u] + w < dist[v]
         if (dist[u] + w < dist[v]) {
-          dist[v] = dist[u] + w; // update best known distance to v
-          prev[v] = u;           // record that best predecessor of v is u
+          dist[v] = dist[u] + w;  // update best known distance to v
+          prev[v] = u;            // record that best predecessor of v is u
         }
       }
     }
@@ -546,7 +566,7 @@
     //   goal -> prev[goal] -> prev[prev[goal]] ... until start
     //
     // This gives a reversed path, so we store into 'rev[]' first.
-    uint8_t rev[16];   // small buffer (safe for NODE_COUNT=8)
+    uint8_t rev[16];  // small buffer (safe for NODE_COUNT=8)
     uint8_t len = 0;
 
     // Start from goal and repeatedly step to its predecessor
@@ -569,8 +589,8 @@
 
     // Return the number of nodes in the path
     return len;
- }
-//----- drive path any node to node-----
+  }
+  //----- drive path any node to node-----
   void drivePath(uint8_t start, uint8_t goal) {
     uint8_t path[16];
     uint8_t len = dijkstraPath(start, goal, path, 16);
@@ -578,23 +598,25 @@
       Serial.println("No path found!");
       return;
     }
-    for(int i=0; i<len; i++){
-      driveEdge(position,path[i]);
-      if (position == goal){break;}
+    for (int i = 1; i < len; i++) {
+      driveEdge(position, path[i]);
+      if (position == goal) {
+        //tell server arrived
+        break;
+      }
     }
   }
 
-  
-  int target[5]={1,3,4,1,0};
-//-----------loop-------------- 
-  void loop(){
-    
-    for (int i=0; i<5;i++){
-      drivePath(position,target[i]);
-      drive(0,0);
-      delay(1000);
-    }
-    drive(0,0);
-    delay(5000);
 
-    }
+int target[5] = { 4, 1, 3, 2, 0 };
+//-----------loop--------------
+void loop() {
+
+  for (int i = 0; i < 5; i++) {
+    drivePath(position, target[i]);
+    drive(0, 0);
+    delay(1000);
+  }
+  drive(0, 0);
+  delay(5000);
+}
