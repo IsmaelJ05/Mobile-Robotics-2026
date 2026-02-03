@@ -181,7 +181,7 @@ float readDistanceCmOnce();
 
 // obstacle detect constants 
   enum Node { N0, N1, N2, N3, N4, N5, N6, N7, NODE_COUNT };
-  float objThreshold = 4.0;
+  float objThreshold = 5.0;
   const float MAX_VALID_CM = 300.0f;
   bool obstacleFlag = false;
   bool blocked[NODE_COUNT][NODE_COUNT] = {};
@@ -194,8 +194,8 @@ float readDistanceCmOnce();
   int motor2PWM   = 39;  // Left motor PWM
   int motor2Phase = 20;  // Left motor direction
 
-  int TRIG = 11;
-  int ECHO = 12; //distance sensor
+  int TRIG = 17;
+  int ECHO = 18; //distance sensor
 
   const int N = 5;
   int AnalogPin[N] = {4, 5, 6, 7, 15};
@@ -482,8 +482,9 @@ float readDistanceCmOnce();
                 sendArrival(position);
                 break;
                 }
-              else if (detectObstacle()){
-              delay(1000);
+              if (detectObstacle()){
+              drive(0,0);
+              delay(5000);
             
               blocked[from][to] = true;
               blocked[to][from] = true;
@@ -494,8 +495,6 @@ float readDistanceCmOnce();
               Serial.print(from);
               Serial.print(" <-> ");
               Serial.println(to);
-
-              turn180();          // you already do this
               obstacleFlag = true;
               return;
             
@@ -767,18 +766,31 @@ while (start != goal) {
     digitalWrite(TRIG, LOW);
 
     // Measure echo pulse width (timeout ~25 ms ~ 4m)
-    unsigned long us = pulseIn(ECHO, HIGH, 25000UL);
-    if (us == 0) return NAN; // timeout / invalid
-
+    unsigned long us = pulseIn(ECHO, HIGH, 5000UL);
+    if (us == 0) {return 100;} // timeout / invalid
+    Serial.println(us);
     // Speed of sound ~343 m/s => 29.1 us per cm round-trip ~ 58.2 us/cm
     float cm = us / 58.2f;
 
-    if (cm < 0.5f || cm > MAX_VALID_CM) return NAN;
+    if (cm < 0.5f || cm > MAX_VALID_CM) {return 100;}
     return cm;
   }
-  bool detectObstacle(){
-    return (readDistanceCmOnce()< objThreshold);
+bool detectObstacle(){
+  static uint8_t hits = 0;
+
+  float d = readDistanceCmOnce();
+  if (isnan(d)) { hits = 0; return false; }
+
+  if (d < objThreshold) {
+    if (++hits >= 3) {
+      hits = 0;
+      return true;
+    }
+  } else {
+    hits = 0;
   }
+  return false;
+}
   
 
 
@@ -794,8 +806,8 @@ while (start != goal) {
       for (int i=0; i<routeLen;i++){
         int dest = routeNodes[i];
         if (dest==position){continue;}
-        Serial.print("Driving to : ");
-        Serial.println(dest);
+        //Serial.print("Driving to : ");
+        //Serial.println(dest);
         drivePath(position,(uint8_t)dest);
 
         drive(0,0);
@@ -808,7 +820,7 @@ while (start != goal) {
 // -------------------- SETUP --------------------
  void setup() {
   Serial.begin(9600);
-
+  drive(0,0);
   for (int i = 0; i < NODE_COUNT; i++) {
     for (int j = 0; j < NODE_COUNT; j++) {
       blocked[i][j] = false;
@@ -853,5 +865,5 @@ while (start != goal) {
   Serial.println();
 
   followNode(4,0);
-
+  delay(100);
     }
