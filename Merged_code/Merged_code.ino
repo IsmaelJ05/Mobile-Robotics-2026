@@ -2,134 +2,138 @@
 #include <HTTPClient.h>
 #include <Arduino.h>
 
+//===== function declarations
+  bool detectObstacle();
+float readDistanceCmOnce();
+
 // ===== Wi-Fi details =====
-const char* ssid     = "iot";
-const char* password = "tiling6whillilew";
+  const char* ssid     = "iot";
+  const char* password = "tiling6whillilew";
 
-// ===== Server details =====
-const char* server  = "http://3.250.38.184:8000";
-const char* TEAM_ID = "diyh4437";
+  // ===== Server details =====
+  const char* server  = "http://3.250.38.184:8000";
+  const char* TEAM_ID = "diyh4437";
 
-// ===== Route (always 6 nodes: 0..5 in some order) =====
-int routeLen =0 ; //
-int routeNodes[20]; //Max size that server can send
+  // ===== Route (always 6 nodes: 0..5 in some order) =====
+  int routeLen =0 ; //
+  int routeNodes[20]; //Max size that server can send
 
-// Parse exactly x comma-separated ints into routeNodes[]
-bool parseRouteDynamic(const String& routeStr, int out[], int& outLen) {
-  outLen = 0;
-  int start = 0;
+  // Parse exactly x comma-separated ints into routeNodes[]
+  bool parseRouteDynamic(const String& routeStr, int out[], int& outLen) {
+    outLen = 0;
+    int start = 0;
 
-  while (start < routeStr.length()) {
-    int comma = routeStr.indexOf(',', start);
-    if (comma == -1) comma = routeStr.length();
+    while (start < routeStr.length()) {
+      int comma = routeStr.indexOf(',', start);
+      if (comma == -1) comma = routeStr.length();
 
-    if (outLen >= 20) return false; // prevent overflow
+      if (outLen >= 20) return false; // prevent overflow
 
-    String token = routeStr.substring(start, comma);
-    token.trim();
-    if (token.length() == 0) return false;
+      String token = routeStr.substring(start, comma);
+      token.trim();
+      if (token.length() == 0) return false;
 
-    out[outLen++] = token.toInt();
-    start = comma + 1;
+      out[outLen++] = token.toInt();
+      start = comma + 1;
+    }
+
+    return (outLen > 0);
   }
 
-  return (outLen > 0);
-}
 
+  // ===== Wi-Fi connect =====
+  void connectToWiFi() {
+    Serial.print("Connecting to network: ");
+    Serial.println(ssid);
 
-// ===== Wi-Fi connect =====
-void connectToWiFi() {
-  Serial.print("Connecting to network: ");
-  Serial.println(ssid);
+    WiFi.begin(ssid, password);
 
-  WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) {
+      Serial.print(".");
+      delay(300);
+    }
 
-  while (WiFi.status() != WL_CONNECTED) {
-    Serial.print(".");
-    delay(300);
+    Serial.println("\nConnected!");
+    Serial.print("IP Address: ");
+    Serial.println(WiFi.localIP());
   }
-
-  Serial.println("\nConnected!");
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
-}
 
 // ===== GET route =====
-String getRoute() {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi not connected!");
-    return "";
-  }
-
-  HTTPClient http;
-  String url = String(server) + "/api/getRoute/" + TEAM_ID;
-
-  Serial.print("Requesting route from: ");
-  Serial.println(url);
-
-  http.begin(url);
-  int code = http.GET();
-
-  String body = "";
-  if (code > 0) {
-    body = http.getString();
-    body.trim();
-    Serial.print("HTTP Status: ");
-    Serial.println(code);
-    Serial.print("Route body: ");
-    Serial.println(body);
-  } else {
-    Serial.print("GET failed, error: ");
-    Serial.println(code);
-  }
-
-  http.end();
-  return body;
-}
-
-// ===== POST arrival =====
-void sendArrival(int position) {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi not connected!");
-    return;
-  }
-
-  HTTPClient http;
-  String url = String(server) + "/api/arrived/" + TEAM_ID;
-  String postData = "position=" + String(position);
-
-  Serial.println("Sending POST to server...");
-  Serial.println(postData);
-
-  http.begin(url);
-  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-
-  int code = http.POST(postData);
-
-  if (code > 0) {
-    String response = http.getString();
-    response.trim();
-
-    Serial.print("HTTP Status: ");
-    Serial.println(code);
-
-    Serial.print("Server response: ");
-    Serial.println(response);
-
-    if (response == "Finished") {
-      Serial.println("Route complete!");
-    } else {
-      int nextDestination = response.toInt();
-      Serial.print("Next destination: ");
-      Serial.println(nextDestination);
+  String getRoute() {
+    if (WiFi.status() != WL_CONNECTED) {
+      Serial.println("WiFi not connected!");
+      return "";
     }
-  } else {
-    Serial.print("POST failed, error: ");
-    Serial.println(code);
+
+    HTTPClient http;
+    String url = String(server) + "/api/getRoute/" + TEAM_ID;
+
+    Serial.print("Requesting route from: ");
+    Serial.println(url);
+
+    http.begin(url);
+    int code = http.GET();
+
+    String body = "";
+    if (code > 0) {
+      body = http.getString();
+      body.trim();
+      Serial.print("HTTP Status: ");
+      Serial.println(code);
+      Serial.print("Route body: ");
+      Serial.println(body);
+    } else {
+      Serial.print("GET failed, error: ");
+      Serial.println(code);
+    }
+
+    http.end();
+    return body;
   }
 
-  http.end();
-}
+  // ===== POST arrival =====
+  void sendArrival(int position) {
+    if (WiFi.status() != WL_CONNECTED) {
+      Serial.println("WiFi not connected!");
+      return;
+    }
+
+    HTTPClient http;
+    String url = String(server) + "/api/arrived/" + TEAM_ID;
+    String postData = "position=" + String(position);
+
+    Serial.println("Sending POST to server...");
+    Serial.println(postData);
+
+    http.begin(url);
+    http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+
+    int code = http.POST(postData);
+
+    if (code > 0) {
+      String response = http.getString();
+      response.trim();
+
+      Serial.print("HTTP Status: ");
+      Serial.println(code);
+
+      Serial.print("Server response: ");
+      Serial.println(response);
+
+      if (response == "Finished") {
+        Serial.println("Route complete!");
+      } else {
+        int nextDestination = response.toInt();
+        Serial.print("Next destination: ");
+        Serial.println(nextDestination);
+      }
+    } else {
+      Serial.print("POST failed, error: ");
+      Serial.println(code);
+    }
+
+    http.end();
+  }
 
 // -------------------- TUNING (START VALUES) ------------------
   int delaySet  = 0;
@@ -175,11 +179,23 @@ void sendArrival(int position) {
   // Optional: also soften D when absErr==1 (helps remove twitch)
   float innerDScale = 0.60f;      // tune 0.40..1.00
 
+// obstacle detect constants 
+  enum Node { N0, N1, N2, N3, N4, N5, N6, N7, NODE_COUNT };
+  float objThreshold = 4.0;
+  const float MAX_VALID_CM = 300.0f;
+  bool obstacleFlag = false;
+  bool blocked[NODE_COUNT][NODE_COUNT] = {};
+  int blockedFrom = -1;
+  int blockedTo   = -1;
+
 // -------------------- PINS --------------------
   int motor1PWM   = 37;  // Right motor PWM
   int motor1Phase = 38;  // Right motor direction
   int motor2PWM   = 39;  // Left motor PWM
   int motor2Phase = 20;  // Left motor direction
+
+  int TRIG = 11;
+  int ECHO = 12; //distance sensor
 
   const int N = 5;
   int AnalogPin[N] = {4, 5, 6, 7, 15};
@@ -466,6 +482,24 @@ void sendArrival(int position) {
                 sendArrival(position);
                 break;
                 }
+              else if (detectObstacle()){
+              delay(1000);
+            
+              blocked[from][to] = true;
+              blocked[to][from] = true;
+              blockedFrom = from;
+              blockedTo = to;
+
+              Serial.print("Blocked edge: ");
+              Serial.print(from);
+              Serial.print(" <-> ");
+              Serial.println(to);
+
+              turn180();          // you already do this
+              obstacleFlag = true;
+              return;
+            
+              }
       }
       }
  void driveEdge(int from, int to) {
@@ -543,7 +577,7 @@ void sendArrival(int position) {
 
 //------pathfinding-----
 
-  enum Node { N0, N1, N2, N3, N4, N5, N6, N7, NODE_COUNT };
+
 
   struct Edge {
     uint8_t to;
@@ -646,19 +680,16 @@ void sendArrival(int position) {
       // than the current best known path start -> v.
       for (int k = 0; k < deg[u]; k++) {
 
-        // v = neighbor node
         int v = graph[u][k].to;
-
-        // w = edge weight cost from u to v
         int w = graph[u][k].w;
 
-        // If dist[u] is already INF, u was unreachable (shouldn't happen here)
-        // Check if going via u improves dist[v]:
-        //   dist[u] + w < dist[v]
+        // skip blocked edges
+        if (blocked[u][v]) continue;
+
         if (dist[u] + w < dist[v]) {
-          dist[v] = dist[u] + w; // update best known distance to v
-          prev[v] = u;           // record that best predecessor of v is u
-        }
+          dist[v] = dist[u] + w;
+          prev[v] = u;
+        }           // record that best predecessor of v is u
       }
     }
 
@@ -697,21 +728,62 @@ void sendArrival(int position) {
  }
 //----- drive path any node to node-----
   void drivePath(uint8_t start, uint8_t goal) {
+while (start != goal) {
+
+    obstacleFlag = false; // reset BEFORE planning
+
     uint8_t path[16];
     uint8_t len = dijkstraPath(start, goal, path, 16);
     if (len == 0) {
       Serial.println("No path found!");
       return;
     }
-    for(int i=1; i<len; i++){
-      driveEdge(position,path[i]);
-      if (position == goal){
-        break;}
+
+    // Follow edges along the path
+    for (int i = 1; i < len; i++) {
+      driveEdge(position, path[i]);   // followNode() updates position
+      if (position == goal) return;
+
+      if (obstacleFlag) {
+        // we turned around, we are now back at 'position' (current)
+        start = position; // re-plan from where we are now
+        break;
+      }
     }
+
+    start = position;
+  }
   }
 
+//---obstacle detect-----
+
+
+  float readDistanceCmOnce() {
+    // Trigger pulse
+    digitalWrite(TRIG, LOW);
+    delayMicroseconds(2);
+    digitalWrite(TRIG, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(TRIG, LOW);
+
+    // Measure echo pulse width (timeout ~25 ms ~ 4m)
+    unsigned long us = pulseIn(ECHO, HIGH, 25000UL);
+    if (us == 0) return NAN; // timeout / invalid
+
+    // Speed of sound ~343 m/s => 29.1 us per cm round-trip ~ 58.2 us/cm
+    float cm = us / 58.2f;
+
+    if (cm < 0.5f || cm > MAX_VALID_CM) return NAN;
+    return cm;
+  }
+  bool detectObstacle(){
+    return (readDistanceCmOnce()< objThreshold);
+  }
   
-  //int target[5]= routeNodes[];
+
+
+
+
 //-----------loop-------------- 
   void loop(){
 
@@ -724,10 +796,10 @@ void sendArrival(int position) {
         if (dest==position){continue;}
         Serial.print("Driving to : ");
         Serial.println(dest);
-      drivePath(position,(uint8_t)dest);
+        drivePath(position,(uint8_t)dest);
 
-    drive(0,0);
-    delay(1000);
+        drive(0,0);
+        delay(1000);
     
     }
     routeLen = 0;
@@ -737,12 +809,19 @@ void sendArrival(int position) {
  void setup() {
   Serial.begin(9600);
 
+  for (int i = 0; i < NODE_COUNT; i++) {
+    for (int j = 0; j < NODE_COUNT; j++) {
+      blocked[i][j] = false;
+    }
+  }
 
 
   pinMode(motor1PWM, OUTPUT);
   pinMode(motor1Phase, OUTPUT);
   pinMode(motor2PWM, OUTPUT);
   pinMode(motor2Phase, OUTPUT);
+  pinMode(TRIG, OUTPUT);
+  pinMode(ECHO, INPUT);
 
   analogReadResolution(12);        // 0..4095
   analogSetAttenuation(ADC_11db);  // best for ~0..3.3V
