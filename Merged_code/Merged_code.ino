@@ -266,44 +266,6 @@ void sendArrival(int position) {
     return (float)e;
   }
 
-// -------------------- SETUP --------------------
-  void setup() {
-    Serial.begin(9600);
-    connectToWiFi();
-     String routeStr = getRoute();
- if (routeStr.length() == 0) {
-  Serial.println("No route received.");
-  return;
- }
-
- if (!parseRouteDynamic(routeStr, routeNodes, routeLen)) {
-  Serial.println("Failed to parse route!");
-  return;
- }
-
- Serial.print("Route nodes: ");
- for (int i = 0; i < routeLen; i++) {
-  Serial.print(routeNodes[i]);
-  if (i < routeLen - 1) Serial.print(" -> ");
- }
- Serial.println();
-
-
-    pinMode(motor1PWM, OUTPUT);
-    pinMode(motor1Phase, OUTPUT);
-    pinMode(motor2PWM, OUTPUT);
-    pinMode(motor2Phase, OUTPUT);
-
-    analogReadResolution(12);        // 0..4095
-    analogSetAttenuation(ADC_11db);  // best for ~0..3.3V
-
-    analogWrite(motor1PWM, 0);
-    analogWrite(motor2PWM, 0);
-
-    lastTimeMs = millis();
-
-    }
-
 // -------------------- follow line ,--------------------
   void follow() {
     delay(delaySet);
@@ -506,64 +468,78 @@ void sendArrival(int position) {
                 }
       }
       }
-      void driveEdge(int from, int to){
-          if ((from==6)&& (to==1)){
-            if(previous==4){
-              turnRight();
-              followNode(from,to);
-            }
-            else if(previous==3){
-              turnLeft();
-              followNode(from,to);
-            } 
-            else{followNode(from,to);}
-          }
+ void driveEdge(int from, int to) {
+    if ((from == 6) && (to == 1)) {
+      if (previous == 4) {
+        turnRight();
+        followNode(from, to);
+      } else if (previous == 3) {
+        turnLeft();
+        followNode(from, to);
+      } else {
+        drive(255, 255);
+        delay(100);
+        followNode(from, to);
+      }
+    }
 
-          else if ((from==7)&& (to==1)){
-            if(previous==2){
-              turnRight();
-              followNode(from,to);
-            }
-            else if(previous==0){
-              turnLeft();
-              followNode(from,to);
-            } 
-            else{followNode(from,to);}
-          }
+    else if ((from == 7) && (to == 1)) {
+      if (previous == 2) {
+        turnRight();
+        followNode(from, to);
+      } else if (previous == 0) {
+        turnLeft();
+        followNode(from, to);
+      } else {
+        drive(255, 255);
+        delay(100);
+        followNode(from, to);
+      }
+    }
 
-          else if ((from==6)&& (to==3)){
-            if(previous==1){
-              turnRight();
-              followNode(from,to);
-            }
-            else{followNode(from,to);}
-          }
-          else if ((from==6)&& (to==4)){
-            if(previous==1){
-              turnLeft();
-              followNode(from,to);
-            }
-            else{followNode(from,to);}
-          }
-          else if ((from==7)&& (to==2)){
-            if(previous==1){
-              turnLeft();
-              followNode(from,to);
-            }
-            else{followNode(from,to);}
-          }
-          else if ((from==7)&& (to==0)){
-            if(previous==1){
-              turnRight();
-              followNode(from,to);
-            }
-            else{followNode(from,to);}
-          }
-          else {drive(255,255);
-          delay(100);
-            followNode(from,to); }
-        
-        }
+    else if ((from == 6) && (to == 3)) {
+      if (previous == 1) {
+        turnRight();
+        followNode(from, to);
+      } else {
+        drive(255, 255);
+        delay(100);
+        followNode(from, to);
+      }
+    } else if ((from == 6) && (to == 4)) {
+      if (previous == 1) {
+        turnLeft();
+        followNode(from, to);
+      } else {
+        drive(255, 255);
+        delay(100);
+        followNode(from, to);
+      }
+    } else if ((from == 7) && (to == 2)) {
+      if (previous == 1) {
+        turnLeft();
+        followNode(from, to);
+      } else {
+        drive(255, 255);
+        delay(100);
+        followNode(from, to);
+      }
+    } else if ((from == 7) && (to == 0)) {
+      if (previous == 1) {
+        turnRight();
+        followNode(from, to);
+      } else {
+        drive(255, 255);
+        delay(100);
+        followNode(from, to);
+      }
+    } else {
+      drive(255, 255);
+      delay(100);
+      followNode(from, to);
+    }
+  }
+
 
 //------pathfinding-----
 
@@ -739,13 +715,59 @@ void sendArrival(int position) {
   //int target[5]= routeNodes[];
 //-----------loop-------------- 
   void loop(){
-    
-    for (int i=0; i<6;i++){
-      drivePath(position,routeNodes[i]);
+    if  (routeLen<=0){
       drive(0,0);
       delay(1000);
+      return;
     }
+    for (int i=0; i<routeLen;i++){
+      int dest = routeNodes[i];
+      if (dest==position) continue;
+      Serial.print("Driving to : ");
+      Serial.println(dest);
+    drivePath(position,(uint8_t)dest);
+
     drive(0,0);
-    delay(5000);
+    delay(1000);
+    //sendArrival(position);
+    }
+    }
+// -------------------- SETUP --------------------
+ void setup() {
+  Serial.begin(9600);
+
+
+
+  pinMode(motor1PWM, OUTPUT);
+  pinMode(motor1Phase, OUTPUT);
+  pinMode(motor2PWM, OUTPUT);
+  pinMode(motor2Phase, OUTPUT);
+
+  analogReadResolution(12);        // 0..4095
+  analogSetAttenuation(ADC_11db);  // best for ~0..3.3V
+
+  analogWrite(motor1PWM, 0);
+  analogWrite(motor2PWM, 0);
+
+  lastTimeMs = millis();
+
+  connectToWiFi();
+  String routeStr = getRoute();
+  if (routeStr.length() == 0) {
+  Serial.println("No route received.");
+  return;
+ }
+
+ if (!parseRouteDynamic(routeStr, routeNodes, routeLen)) {
+  Serial.println("Failed to parse route!");
+  return;
+ }
+
+ Serial.print("Route nodes: ");
+ for (int i = 0; i < routeLen; i++) {
+  Serial.print(routeNodes[i]);
+  if (i < routeLen - 1) Serial.print(" -> ");
+ }
+ Serial.println();
 
     }
