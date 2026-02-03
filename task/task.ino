@@ -598,29 +598,24 @@ void drive(int rightSpeed, int leftSpeed) {
       Serial.println("No path found!");
       return;
     }
-    
+
     for (int i = 1; i < len; i++) {
       driveEdge(position, path[i]);
       if (position == goal) {
         //tell server arrived
         break;
       }
-=======
-    for(int i=1; i<len; i++){
-      driveEdge(position,path[i]);
-      if (position == goal){break;}
->>>>>>> d1e0e3533664a0943c59e2015e407eb93f8a7c48
     }
   }
 
 
-int target[5] = { 4, 1, 3, 2, 0 };
+int target[5] = { 1, 3, 4, 1, 0 };
 //-----------loop--------------
-void loop() {
+void loop(){
 
   for (int i = 0; i < 5; i++) {
     drivePath(position, target[i]);
-    drive(0, 0);
+    drive(0,0);
     delay(1000);
   }
   drive(0, 0);
