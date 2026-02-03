@@ -463,7 +463,7 @@ void sendArrival(int position) {
               if (detectNode()){
                 previous = from;
                 position = to;
-                //sendArrival(from,to)
+                sendArrival(position);
                 break;
                 }
       }
@@ -706,7 +706,6 @@ void sendArrival(int position) {
     for(int i=1; i<len; i++){
       driveEdge(position,path[i]);
       if (position == goal){
-        //sendArrival(position);
         break;}
     }
   }
@@ -715,21 +714,23 @@ void sendArrival(int position) {
   //int target[5]= routeNodes[];
 //-----------loop-------------- 
   void loop(){
+
     if  (routeLen<=0){
       drive(0,0);
-      delay(1000);
-      return;
-    }
-    for (int i=0; i<routeLen;i++){
-      int dest = routeNodes[i];
-      if (dest==position) continue;
-      Serial.print("Driving to : ");
-      Serial.println(dest);
-    drivePath(position,(uint8_t)dest);
+      delay(1000);}
+    else{
+      for (int i=0; i<routeLen;i++){
+        int dest = routeNodes[i];
+        if (dest==position){continue;}
+        Serial.print("Driving to : ");
+        Serial.println(dest);
+      drivePath(position,(uint8_t)dest);
 
     drive(0,0);
     delay(1000);
-    //sendArrival(position);
+    
+    }
+    routeLen = 0;
     }
     }
 // -------------------- SETUP --------------------
@@ -751,6 +752,8 @@ void sendArrival(int position) {
 
   lastTimeMs = millis();
 
+  
+
   connectToWiFi();
   String routeStr = getRoute();
   if (routeStr.length() == 0) {
@@ -763,11 +766,13 @@ void sendArrival(int position) {
   return;
  }
 
- Serial.print("Route nodes: ");
- for (int i = 0; i < routeLen; i++) {
+  Serial.print("Route nodes: ");
+  for (int i = 0; i < routeLen; i++) {
   Serial.print(routeNodes[i]);
   if (i < routeLen - 1) Serial.print(" -> ");
- }
- Serial.println();
+  }
+  Serial.println();
+
+  followNode(4,0);
 
     }
