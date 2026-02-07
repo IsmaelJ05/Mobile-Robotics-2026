@@ -2,10 +2,6 @@
 #include <HTTPClient.h>
 #include <Arduino.h>
 
-//===== function declarations
-  bool detectObstacle();
-float readDistanceCmOnce();
-
 // ===== Wi-Fi details =====
   const char* ssid     = "iot";
   const char* password = "tiling6whillilew";
@@ -18,7 +14,7 @@ float readDistanceCmOnce();
   int routeLen =0 ; //
   int routeNodes[20]; //Max size that server can send
 
-  // Parse exactly x comma-separated ints into routeNodes[]
+// Parse exactly x comma-separated ints into routeNodes[]
   bool parseRouteDynamic(const String& routeStr, int out[], int& outLen) {
     outLen = 0;
     int start = 0;
@@ -41,7 +37,7 @@ float readDistanceCmOnce();
   }
 
 
-  // ===== Wi-Fi connect =====
+// ===== Wi-Fi connect =====
   void connectToWiFi() {
     Serial.print("Connecting to network: ");
     Serial.println(ssid);
@@ -91,7 +87,7 @@ float readDistanceCmOnce();
     return body;
   }
 
-  // ===== POST arrival =====
+// ===== POST arrival =====
   void sendArrival(int position) {
     if (WiFi.status() != WL_CONNECTED) {
       Serial.println("WiFi not connected!");
@@ -135,9 +131,167 @@ float readDistanceCmOnce();
     http.end();
   }
 
+//------pathfinding-----
+
+  enum Node { N0, N1, N2, N3, N4, N5, N6, N7, NODE_COUNT };
+  bool blocked[NODE_COUNT][NODE_COUNT] = {};
+  int blockedFrom = -1;
+  int blockedTo   = -1;
+
+  struct Edge {
+    uint8_t to;
+    uint8_t w;
+  };
+
+  // Adjacency lists
+  const Edge adj0[] = { {7,1}, {4,1} };
+  const Edge adj1[] = { {7,1}, {6,1} };
+  const Edge adj2[] = { {3,1}, {7,1} };
+  const Edge adj3[] = { {6,2}, {2,1} };
+  const Edge adj4[] = { {6,1}, {0,1} };
+  const Edge adj5[] = { };
+  const Edge adj6[] = { {3,2}, {4,2}, {1,1} };
+  const Edge adj7[] = { {2,1}, {1,1}, {0,1} };
+
+  // Graph table
+  const Edge* graph[NODE_COUNT] = {
+    adj0, adj1, adj2, adj3, adj4, adj5, adj6, adj7
+  };
+
+  const uint8_t deg[NODE_COUNT] = {2,2,2,2,2,0,3,3};
+  // ------------------------------------------------------------
+  // DIJKSTRA SHORTEST PATH
+  // Given:
+  //   start = starting node index
+  //   goal  = target node index
+  //   path  = output array that will store the node sequence
+  //   maxLen = maximum size of 'path' array
+  //
+  // Returns:
+  //   number of nodes in the path (>=1) if a path exists,
+  //   0 if no path exists or if path buffer is too small.
+  //
+  // Path format:
+  //   path[0] = start, path[len-1] = goal
+  // ------------------------------------------------------------
+  uint8_t dijkstraPath(uint8_t start, uint8_t goal,
+                      uint8_t* path, uint8_t maxLen) {
+
+    // A very large number used to represent "infinity"
+    // (meaning: currently unknown / unreachable distance)
+    const int INF = 32767;
+
+    // dist[i] = best (smallest) known distance from start -> i
+    int dist[NODE_COUNT];
+
+    // prev[i] = previous node on the best path to i
+    // This is used later to reconstruct the final path.
+    // If prev[i] == -1, there is no predecessor known.
+    int prev[NODE_COUNT];
+
+    // used[i] = true when node i is finalized (we will not improve its distance)
+    bool used[NODE_COUNT];
+
+    // -------------------- INITIALIZATION --------------------
+    // Set:
+    //   - dist[] to INF (unknown)
+    //   - prev[] to -1 (no predecessor)
+    //   - used[] to false (nothing processed yet)
+    for (int i = 0; i < NODE_COUNT; i++) {
+      dist[i] = INF;
+      prev[i] = -1;
+      used[i] = false;
+    }
+
+    // Distance from start to itself is 0
+    dist[start] = 0;
+
+    // -------------------- MAIN DIJKSTRA LOOP --------------------
+    // We run at most NODE_COUNT iterations. Each iteration:
+    // 1) Choose the unused node with the smallest dist[]
+    // 2) "Finalize" it (mark used)
+    // 3) Relax its neighbors (try to improve paths through it)
+    for (int i = 0; i < NODE_COUNT; i++) {
+
+      // ----- Step 1: pick best unused node u -----
+      // u will be the node that is:
+      //   - not used yet
+      //   - has the smallest dist[u]
+      int u = -1;
+      for (int j = 0; j < NODE_COUNT; j++) {
+        if (!used[j] && (u == -1 || dist[j] < dist[u])) {
+          u = j;
+        }
+      }
+
+      // If u is still -1, there are no reachable unused nodes left.
+      // That means goal might be unreachable.
+      // Or: if u == goal, we can stop early (we already found the best path).
+      if (u == -1 || u == goal) break;
+
+      // ----- Step 2: finalize u -----
+      // Once a node is selected as the smallest unused distance,
+      // in Dijkstra this distance is final (cannot be improved later).
+      used[u] = true;
+
+      // ----- Step 3: relax all edges from u -----
+      // "Relax" means: check if going from start -> u -> v is better
+      // than the current best known path start -> v.
+      for (int k = 0; k < deg[u]; k++) {
+
+        // v = neighbor node
+        int v = graph[u][k].to;
+
+        // w = edge weight cost from u to v
+        int w = graph[u][k].w;
+        if (blocked[u][v]) continue;
+        // If dist[u] is already INF, u was unreachable (shouldn't happen here)
+        // Check if going via u improves dist[v]:
+        //   dist[u] + w < dist[v]
+        if (dist[u] + w < dist[v]) {
+          dist[v] = dist[u] + w; // update best known distance to v
+          prev[v] = u;           // record that best predecessor of v is u
+        }
+      }
+    }
+
+    // -------------------- CHECK REACHABILITY --------------------
+    // If goal still has INF distance, no path exists.
+    if (dist[goal] == INF) return 0;
+
+    // -------------------- PATH RECONSTRUCTION --------------------
+    // We reconstruct the path by walking backward:
+    //   goal -> prev[goal] -> prev[prev[goal]] ... until start
+    //
+    // This gives a reversed path, so we store into 'rev[]' first.
+    uint8_t rev[16];   // small buffer (safe for NODE_COUNT=8)
+    uint8_t len = 0;
+
+    // Start from goal and repeatedly step to its predecessor
+    for (int v = goal; v != -1; v = prev[v]) {
+      rev[len++] = v;
+
+      // (Optional safety) avoid overflow if something went wrong
+      if (len >= sizeof(rev)) break;
+    }
+
+    // If path longer than caller's buffer, fail
+    if (len > maxLen) return 0;
+
+    // Now reverse it into the output 'path[]'
+    // rev currently holds: goal, ..., start
+    // output wants: start, ..., goal
+    for (int i = 0; i < len; i++) {
+      path[i] = rev[len - 1 - i];
+    }
+
+    // Return the number of nodes in the path
+    return len;
+ }
+
 // -------------------- TUNING (START VALUES) ------------------
   int delaySet  = 0;
-  int baseSpeed = 250;          // start lower while tuning
+  int baseSpeed = 230;          // start lower while tuning
 
   // Keep Ki = 0 for digital sensors until everything else is stable
   float Ki = 0.0;
@@ -179,23 +333,14 @@ float readDistanceCmOnce();
   // Optional: also soften D when absErr==1 (helps remove twitch)
   float innerDScale = 0.60f;      // tune 0.40..1.00
 
-// obstacle detect constants 
-  enum Node { N0, N1, N2, N3, N4, N5, N6, N7, NODE_COUNT };
-  float objThreshold = 5.0;
-  const float MAX_VALID_CM = 300.0f;
-  bool obstacleFlag = false;
-  bool blocked[NODE_COUNT][NODE_COUNT] = {};
-  int blockedFrom = -1;
-  int blockedTo   = -1;
-
 // -------------------- PINS --------------------
   int motor1PWM   = 37;  // Right motor PWM
   int motor1Phase = 38;  // Right motor direction
   int motor2PWM   = 39;  // Left motor PWM
   int motor2Phase = 20;  // Left motor direction
-
-  int TRIG = 17;
-  int ECHO = 18; //distance sensor
+  
+  int obsInterrupt = 17;
+  int wallInterrupt = 18; 
 
   const int N = 5;
   int AnalogPin[N] = {4, 5, 6, 7, 15};
@@ -282,8 +427,53 @@ float readDistanceCmOnce();
     return (float)e;
   }
 
+//----- detector interupts---------
+  volatile bool goWall = false;
+  volatile bool parked = false;
+  volatile bool obsFlag = false;
+  volatile bool reroute = false;
+  volatile int curFrom = -1;
+  volatile int curTo   = -1;
+  portMUX_TYPE isrMux = portMUX_INITIALIZER_UNLOCKED;
+
+  void IRAM_ATTR obstacle() {
+    obsFlag = true;
+    return;
+  }
+  void testObstacle(){
+    if (!obsFlag) return;
+    obsFlag = false;
+    drive(0,0);
+    delay(3000);
+    int from, to;
+    portENTER_CRITICAL(&isrMux);
+    from = curFrom;
+    to   = curTo;
+    portEXIT_CRITICAL(&isrMux);
+
+    if (from >= 0 && to >= 0 && from < NODE_COUNT && to < NODE_COUNT) {
+      blocked[from][to] = true;
+      blocked[to][from] = true;
+      blockedFrom = from;
+      blockedTo = to;
+
+      Serial.print("Blocked edge: ");
+      Serial.print(from);
+      Serial.print(" <-> ");
+      Serial.println(to);
+      }
+      reroute= true;
+  }
+
+  void IRAM_ATTR wall() {
+    if (!goWall) return;
+    parked= true;
+  }
+
+
 // -------------------- follow line ,--------------------
   void follow() {
+    
     delay(delaySet);
 
     // 1) Read digital line error
@@ -475,6 +665,8 @@ float readDistanceCmOnce();
     void followNode(int from,int to){
         if (previous==to){turn180();}
         while (true){
+              testObstacle();
+              if (reroute) return;
               follow();
               if (detectNode()){
                 previous = from;
@@ -482,26 +674,14 @@ float readDistanceCmOnce();
                 sendArrival(position);
                 break;
                 }
-              if (detectObstacle()){
-              drive(0,0);
-              delay(5000);
-            
-              blocked[from][to] = true;
-              blocked[to][from] = true;
-              blockedFrom = from;
-              blockedTo = to;
-
-              Serial.print("Blocked edge: ");
-              Serial.print(from);
-              Serial.print(" <-> ");
-              Serial.println(to);
-              obstacleFlag = true;
-              return;
-            
-              }
       }
       }
  void driveEdge(int from, int to) {
+  portENTER_CRITICAL(&isrMux);
+  curFrom = from;
+  curTo   = to;
+  portEXIT_CRITICAL(&isrMux);
+    
     if ((from == 6) && (to == 1)) {
       if (previous == 4) {
         turnRight();
@@ -574,272 +754,89 @@ float readDistanceCmOnce();
   }
 
 
-//------pathfinding-----
 
-
-
-  struct Edge {
-    uint8_t to;
-    uint8_t w;
-  };
-
-  // Adjacency lists
-  const Edge adj0[] = { {7,1}, {4,1} };
-  const Edge adj1[] = { {7,1}, {6,1} };
-  const Edge adj2[] = { {3,1}, {7,1} };
-  const Edge adj3[] = { {6,2}, {2,1} };
-  const Edge adj4[] = { {6,1}, {0,1} };
-  const Edge adj5[] = { };
-  const Edge adj6[] = { {3,2}, {4,2}, {1,1} };
-  const Edge adj7[] = { {2,1}, {1,1}, {0,1} };
-
-  // Graph table
-  const Edge* graph[NODE_COUNT] = {
-    adj0, adj1, adj2, adj3, adj4, adj5, adj6, adj7
-  };
-
-  const uint8_t deg[NODE_COUNT] = {2,2,2,2,2,0,3,3};
-  // ------------------------------------------------------------
-  // DIJKSTRA SHORTEST PATH
-  // Given:
-  //   start = starting node index
-  //   goal  = target node index
-  //   path  = output array that will store the node sequence
-  //   maxLen = maximum size of 'path' array
-  //
-  // Returns:
-  //   number of nodes in the path (>=1) if a path exists,
-  //   0 if no path exists or if path buffer is too small.
-  //
-  // Path format:
-  //   path[0] = start, path[len-1] = goal
-  // ------------------------------------------------------------
-  uint8_t dijkstraPath(uint8_t start, uint8_t goal,
-                      uint8_t* path, uint8_t maxLen) {
-
-    // A very large number used to represent "infinity"
-    // (meaning: currently unknown / unreachable distance)
-    const int INF = 32767;
-
-    // dist[i] = best (smallest) known distance from start -> i
-    int dist[NODE_COUNT];
-
-    // prev[i] = previous node on the best path to i
-    // This is used later to reconstruct the final path.
-    // If prev[i] == -1, there is no predecessor known.
-    int prev[NODE_COUNT];
-
-    // used[i] = true when node i is finalized (we will not improve its distance)
-    bool used[NODE_COUNT];
-
-    // -------------------- INITIALIZATION --------------------
-    // Set:
-    //   - dist[] to INF (unknown)
-    //   - prev[] to -1 (no predecessor)
-    //   - used[] to false (nothing processed yet)
-    for (int i = 0; i < NODE_COUNT; i++) {
-      dist[i] = INF;
-      prev[i] = -1;
-      used[i] = false;
-    }
-
-    // Distance from start to itself is 0
-    dist[start] = 0;
-
-    // -------------------- MAIN DIJKSTRA LOOP --------------------
-    // We run at most NODE_COUNT iterations. Each iteration:
-    // 1) Choose the unused node with the smallest dist[]
-    // 2) "Finalize" it (mark used)
-    // 3) Relax its neighbors (try to improve paths through it)
-    for (int i = 0; i < NODE_COUNT; i++) {
-
-      // ----- Step 1: pick best unused node u -----
-      // u will be the node that is:
-      //   - not used yet
-      //   - has the smallest dist[u]
-      int u = -1;
-      for (int j = 0; j < NODE_COUNT; j++) {
-        if (!used[j] && (u == -1 || dist[j] < dist[u])) {
-          u = j;
-        }
-      }
-
-      // If u is still -1, there are no reachable unused nodes left.
-      // That means goal might be unreachable.
-      // Or: if u == goal, we can stop early (we already found the best path).
-      if (u == -1 || u == goal) break;
-
-      // ----- Step 2: finalize u -----
-      // Once a node is selected as the smallest unused distance,
-      // in Dijkstra this distance is final (cannot be improved later).
-      used[u] = true;
-
-      // ----- Step 3: relax all edges from u -----
-      // "Relax" means: check if going from start -> u -> v is better
-      // than the current best known path start -> v.
-      for (int k = 0; k < deg[u]; k++) {
-
-        int v = graph[u][k].to;
-        int w = graph[u][k].w;
-
-        // skip blocked edges
-        if (blocked[u][v]) continue;
-
-        if (dist[u] + w < dist[v]) {
-          dist[v] = dist[u] + w;
-          prev[v] = u;
-        }           // record that best predecessor of v is u
-      }
-    }
-
-    // -------------------- CHECK REACHABILITY --------------------
-    // If goal still has INF distance, no path exists.
-    if (dist[goal] == INF) return 0;
-
-    // -------------------- PATH RECONSTRUCTION --------------------
-    // We reconstruct the path by walking backward:
-    //   goal -> prev[goal] -> prev[prev[goal]] ... until start
-    //
-    // This gives a reversed path, so we store into 'rev[]' first.
-    uint8_t rev[16];   // small buffer (safe for NODE_COUNT=8)
-    uint8_t len = 0;
-
-    // Start from goal and repeatedly step to its predecessor
-    for (int v = goal; v != -1; v = prev[v]) {
-      rev[len++] = v;
-
-      // (Optional safety) avoid overflow if something went wrong
-      if (len >= sizeof(rev)) break;
-    }
-
-    // If path longer than caller's buffer, fail
-    if (len > maxLen) return 0;
-
-    // Now reverse it into the output 'path[]'
-    // rev currently holds: goal, ..., start
-    // output wants: start, ..., goal
-    for (int i = 0; i < len; i++) {
-      path[i] = rev[len - 1 - i];
-    }
-
-    // Return the number of nodes in the path
-    return len;
- }
 //----- drive path any node to node-----
   void drivePath(uint8_t start, uint8_t goal) {
-while (start != goal) {
-
-    obstacleFlag = false; // reset BEFORE planning
-
-    uint8_t path[16];
-    uint8_t len = dijkstraPath(start, goal, path, 16);
-    if (len == 0) {
-      Serial.println("No path found!");
-      return;
-    }
-
-    // Follow edges along the path
-    for (int i = 1; i < len; i++) {
-      driveEdge(position, path[i]);   // followNode() updates position
-      if (position == goal) return;
-
-      if (obstacleFlag) {
-        // we turned around, we are now back at 'position' (current)
-        start = position; // re-plan from where we are now
-        break;
+    while (position!= goal){
+      uint8_t path[16];
+      uint8_t len = dijkstraPath(start, goal, path, 16);
+      reroute= false;
+      if (len == 0) {
+        Serial.println("No path found!");
+        return;
       }
+      for(int i=1; i<len; i++){
+        driveEdge(position,path[i]);
+        if (reroute) {
+          start = position;
+          break;
+        }
+      
+      }
+
     }
-
-    start = position;
-  }
   }
 
-//---obstacle detect-----
 
 
-  float readDistanceCmOnce() {
-    // Trigger pulse
-    digitalWrite(TRIG, LOW);
-    delayMicroseconds(2);
-    digitalWrite(TRIG, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(TRIG, LOW);
-
-    // Measure echo pulse width (timeout ~25 ms ~ 4m)
-    unsigned long us = pulseIn(ECHO, HIGH, 5000UL);
-    if (us == 0) {return 100;} // timeout / invalid
-    Serial.println(us);
-    // Speed of sound ~343 m/s => 29.1 us per cm round-trip ~ 58.2 us/cm
-    float cm = us / 58.2f;
-
-    if (cm < 0.5f || cm > MAX_VALID_CM) {return 100;}
-    return cm;
-  }
-bool detectObstacle(){
-  static uint8_t hits = 0;
-
-  float d = readDistanceCmOnce();
-  if (isnan(d)) { hits = 0; return false; }
-
-  if (d < objThreshold) {
-    if (++hits >= 3) {
-      hits = 0;
-      return true;
-    }
-  } else {
-    hits = 0;
-  }
-  return false;
-}
   
-
-
-
-
+  //int target[5]= routeNodes[];
 //-----------loop-------------- 
   void loop(){
-
     if  (routeLen<=0){
       drive(0,0);
       delay(1000);}
     else{
       for (int i=0; i<routeLen;i++){
         int dest = routeNodes[i];
+        if (dest==5) break;
         if (dest==position){continue;}
-        //Serial.print("Driving to : ");
-        //Serial.println(dest);
-        drivePath(position,(uint8_t)dest);
+        Serial.print("Driving to : ");
+        Serial.println(dest);
+      drivePath(position,(uint8_t)dest);}
 
-        drive(0,0);
-        delay(1000);
+    if (position != 1){ drivePath(position,1);}
+    driveEdge(1,6);
+    goWall = true;
+
+    while(!parked){
+      drive(220,210);
+    }
+    drive(220,215);
+    delay(2500);
+    drive(0,0);
+
+    position= 5;
+    sendArrival(position);
+    drive(0,0);
+    delay(1000);
+    routeLen = 0;
     
     }
-    routeLen = 0;
+    drive(200,200);
     }
-    }
+    
 // -------------------- SETUP --------------------
  void setup() {
   Serial.begin(9600);
-  drive(0,0);
-  for (int i = 0; i < NODE_COUNT; i++) {
-    for (int j = 0; j < NODE_COUNT; j++) {
-      blocked[i][j] = false;
-    }
-  }
+
 
 
   pinMode(motor1PWM, OUTPUT);
   pinMode(motor1Phase, OUTPUT);
   pinMode(motor2PWM, OUTPUT);
   pinMode(motor2Phase, OUTPUT);
-  pinMode(TRIG, OUTPUT);
-  pinMode(ECHO, INPUT);
+
+  drive(0,0);
+
+  pinMode(obsInterrupt, INPUT_PULLDOWN);
+  pinMode(wallInterrupt, INPUT_PULLDOWN);
+  attachInterrupt(digitalPinToInterrupt(obsInterrupt),obstacle,RISING);
+  attachInterrupt(digitalPinToInterrupt(wallInterrupt),wall,RISING);
 
   analogReadResolution(12);        // 0..4095
   analogSetAttenuation(ADC_11db);  // best for ~0..3.3V
 
-  analogWrite(motor1PWM, 0);
-  analogWrite(motor2PWM, 0);
 
   lastTimeMs = millis();
 
@@ -865,5 +862,8 @@ bool detectObstacle(){
   Serial.println();
 
   followNode(4,0);
+  drive(0,0);
   delay(100);
     }
+
+//==end==
