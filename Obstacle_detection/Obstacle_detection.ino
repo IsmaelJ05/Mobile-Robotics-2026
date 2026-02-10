@@ -1,9 +1,9 @@
 int trig = 4;
 int echo = 5;
-
+int wall = 7;
+int obs = 6;
 long duration;
 float distance;
-float meter;
 
 void setup()
 {
@@ -11,6 +11,11 @@ void setup()
 
   pinMode(trig, OUTPUT);
   pinMode(echo, INPUT);
+  pinMode(wall, OUTPUT);
+  pinMode(obs, OUTPUT);
+
+  digitalWrite(wall, LOW);
+  digitalWrite(obs, LOW);
 
   digitalWrite(trig, LOW);
   delay(2);
@@ -32,18 +37,21 @@ void loop()
 
   if (duration == 0)
   {
-    Serial.println("Out of range");
+    distance = 500;
+  
   }
   else
   {
     distance = duration / 58.0;
-    meter = distance / 100.0;
 
-    Serial.print(distance);
-    Serial.print(" cm\t");
-    Serial.print(meter);
-    Serial.println(" m");
+  }
+  if (distance < 10.0 ){
+      digitalWrite(wall, HIGH);
+      delay(2);
+      digitalWrite(wall, LOW);
+      Serial.println("pulse");
   }
 
-  delay(1000);
+  delay(100);
+
 }

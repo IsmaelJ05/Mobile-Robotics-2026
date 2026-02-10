@@ -4,7 +4,7 @@
 
 // ===== Wi-Fi details =====
   const char* ssid     = "iot";
-  const char* password = "tiling6whillilew";
+  const char* password = "premorbidly55telephoning";
 
   // ===== Server details =====
   const char* server  = "http://3.250.38.184:8000";
@@ -436,10 +436,11 @@
   volatile int curTo   = -1;
   portMUX_TYPE isrMux = portMUX_INITIALIZER_UNLOCKED;
 
-  void IRAM_ATTR obstacle() {
+ /* void IRAM_ATTR obstacle() {
+    if (goWall) return;
     obsFlag = true;
     return;
-  }
+  }*/
   void testObstacle(){
     if (!obsFlag) return;
     obsFlag = false;
@@ -464,8 +465,8 @@
       }
       reroute= true;
   }
-
   void IRAM_ATTR wall() {
+    detachInterrupt(digitalPinToInterrupt(wallInterrupt));
     if (!goWall) return;
     parked= true;
   }
@@ -777,10 +778,6 @@
     }
   }
 
-
-
-  
-  //int target[5]= routeNodes[];
 //-----------loop-------------- 
   void loop(){
     if  (routeLen<=0){
@@ -793,17 +790,24 @@
         if (dest==position){continue;}
         Serial.print("Driving to : ");
         Serial.println(dest);
-      drivePath(position,(uint8_t)dest);}
+        drivePath(position,(uint8_t)dest);
+        drive(0,0);
+        delay(500);
+      }
+    Serial.println("going to wall");
 
     if (position != 1){ drivePath(position,1);}
     driveEdge(1,6);
     goWall = true;
-
+    attachInterrupt(digitalPinToInterrupt(wallInterrupt),wall,RISING);
+    parked = false;
+    
     while(!parked){
       drive(220,210);
+      delay(100);
+      Serial.println("not parked");
     }
-    drive(220,215);
-    delay(2500);
+    Serial.println("parked");
     drive(0,0);
 
     position= 5;
@@ -813,7 +817,6 @@
     routeLen = 0;
     
     }
-    drive(200,200);
     }
     
 // -------------------- SETUP --------------------
@@ -831,8 +834,8 @@
 
   pinMode(obsInterrupt, INPUT_PULLDOWN);
   pinMode(wallInterrupt, INPUT_PULLDOWN);
-  attachInterrupt(digitalPinToInterrupt(obsInterrupt),obstacle,RISING);
-  attachInterrupt(digitalPinToInterrupt(wallInterrupt),wall,RISING);
+  //attachInterrupt(digitalPinToInterrupt(obsInterrupt),obstacle,RISING);
+  //attachInterrupt(digitalPinToInterrupt(wallInterrupt),wall,RISING);
 
   analogReadResolution(12);        // 0..4095
   analogSetAttenuation(ADC_11db);  // best for ~0..3.3V
@@ -860,7 +863,6 @@
   if (i < routeLen - 1) Serial.print(" -> ");
   }
   Serial.println();
-
   followNode(4,0);
   drive(0,0);
   delay(100);
