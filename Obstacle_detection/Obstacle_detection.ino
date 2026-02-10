@@ -38,7 +38,6 @@ void loop()
   if (duration == 0)
   {
     distance = 500;
-  
   }
   else
   {

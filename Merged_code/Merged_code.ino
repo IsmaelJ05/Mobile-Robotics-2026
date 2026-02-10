@@ -149,8 +149,8 @@
   const Edge adj2[] = { {3,1}, {7,1} };
   const Edge adj3[] = { {6,2}, {2,1} };
   const Edge adj4[] = { {6,1}, {0,1} };
-  const Edge adj5[] = { };
-  const Edge adj6[] = { {3,2}, {4,2}, {1,1} };
+  const Edge adj5[] = {6,10 };
+  const Edge adj6[] = { {3,2}, {4,2}, {1,1}, {5,10} };
   const Edge adj7[] = { {2,1}, {1,1}, {0,1} };
 
   // Graph table
@@ -158,7 +158,7 @@
     adj0, adj1, adj2, adj3, adj4, adj5, adj6, adj7
   };
 
-  const uint8_t deg[NODE_COUNT] = {2,2,2,2,2,0,3,3};
+  const uint8_t deg[NODE_COUNT] = {2,2,2,2,2,1,4,3};
   // ------------------------------------------------------------
   // DIJKSTRA SHORTEST PATH
   // Given:
@@ -436,6 +436,10 @@
   volatile int curTo   = -1;
   portMUX_TYPE isrMux = portMUX_INITIALIZER_UNLOCKED;
 
+  volatile bool wallArmed = false;
+  volatile uint32_t wallArmMs = 0;
+
+
  /* void IRAM_ATTR obstacle() {
     if (goWall) return;
     obsFlag = true;
@@ -465,10 +469,15 @@
       }
       reroute= true;
   }
+  volatile uint32_t lastWallUs = 0;
   void IRAM_ATTR wall() {
-    detachInterrupt(digitalPinToInterrupt(wallInterrupt));
     if (!goWall) return;
-    parked= true;
+
+  uint32_t now = micros();
+  if (now - lastWallUs < 200000) return;  // 200ms debounce
+  lastWallUs = now;
+
+  parked = true;
   }
 
 
@@ -670,19 +679,62 @@
               if (reroute) return;
               follow();
               if (detectNode()){
-                previous = from;
+                previous = position;
                 position = to;
                 sendArrival(position);
                 break;
                 }
       }
       }
+
+
+void gotoWall() {
+  goWall = true;
+  parked = false;
+  wallArmed = false;
+
+
+  attachInterrupt(digitalPinToInterrupt(wallInterrupt), wall, RISING);
+
+  // Arm after a short delay to avoid the attach-edge / noise
+  wallArmMs = millis();
+  while (millis() - wallArmMs < 150) {    // 100–300ms works
+    drive(0,0);
+    delay(1);
+  }
+  wallArmed = true;
+
+  while (!parked) {
+    drive(220, 220);
+    delay(100);
+    Serial.println("not parked");
+  }
+  detachInterrupt(digitalPinToInterrupt(wallInterrupt));
+  Serial.println("parked");
+  drive(0,0);
+}
+
+  
  void driveEdge(int from, int to) {
   portENTER_CRITICAL(&isrMux);
   curFrom = from;
   curTo   = to;
   portEXIT_CRITICAL(&isrMux);
-    
+    if ((from==6) && (to==5)){
+      if (previous == 4){turnLeft();}
+      if (previous == 3){turnRight();}
+      if (previous == 1){drive(255,255);
+        delay(100);
+      }
+      for (int i=0; i<10; i++){
+      follow();
+      delay(100);
+      }
+      gotoWall();
+      position=5;
+      return;
+
+    }
     if ((from == 6) && (to == 1)) {
       if (previous == 4) {
         turnRight();
@@ -695,6 +747,7 @@
         delay(100);
         followNode(from, to);
       }
+      return;
     }
 
     else if ((from == 7) && (to == 1)) {
@@ -709,6 +762,7 @@
         delay(100);
         followNode(from, to);
       }
+      return;
     }
 
     else if ((from == 6) && (to == 3)) {
@@ -720,7 +774,9 @@
         delay(100);
         followNode(from, to);
       }
-    } else if ((from == 6) && (to == 4)) {
+      return;
+    } 
+    else if ((from == 6) && (to == 4)) {
       if (previous == 1) {
         turnLeft();
         followNode(from, to);
@@ -729,7 +785,10 @@
         delay(100);
         followNode(from, to);
       }
-    } else if ((from == 7) && (to == 2)) {
+    return;
+    }
+    
+     else if ((from == 7) && (to == 2)) {
       if (previous == 1) {
         turnLeft();
         followNode(from, to);
@@ -738,7 +797,9 @@
         delay(100);
         followNode(from, to);
       }
-    } else if ((from == 7) && (to == 0)) {
+    return;
+    } 
+    else if ((from == 7) && (to == 0)) {
       if (previous == 1) {
         turnRight();
         followNode(from, to);
@@ -747,10 +808,13 @@
         delay(100);
         followNode(from, to);
       }
-    } else {
+    return;
+    } 
+    else {
       drive(255, 255);
       delay(100);
       followNode(from, to);
+      return;
     }
   }
 
@@ -786,7 +850,6 @@
     else{
       for (int i=0; i<routeLen;i++){
         int dest = routeNodes[i];
-        if (dest==5) break;
         if (dest==position){continue;}
         Serial.print("Driving to : ");
         Serial.println(dest);
@@ -794,28 +857,8 @@
         drive(0,0);
         delay(500);
       }
-    Serial.println("going to wall");
-
-    if (position != 1){ drivePath(position,1);}
-    driveEdge(1,6);
-    goWall = true;
-    attachInterrupt(digitalPinToInterrupt(wallInterrupt),wall,RISING);
-    parked = false;
-    
-    while(!parked){
-      drive(220,210);
-      delay(100);
-      Serial.println("not parked");
-    }
-    Serial.println("parked");
-    drive(0,0);
-
-    position= 5;
-    sendArrival(position);
-    drive(0,0);
     delay(1000);
     routeLen = 0;
-    
     }
     }
     
