@@ -45,11 +45,13 @@ void loop()
 
   }
   if (distance < 10.0 ){
-      digitalWrite(wall, HIGH);
-      delay(2);
-      digitalWrite(wall, LOW);
-      Serial.println("pulse");
+    digitalWrite(wall,HIGH);
+    delayMicroseconds(500);
+    Serial.println("pulse");
+    
   }
+
+  
 
   delay(100);
 

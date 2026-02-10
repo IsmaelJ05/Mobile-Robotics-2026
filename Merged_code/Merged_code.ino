@@ -444,6 +444,41 @@
     obsFlag = true;
     return;
   }*/
+   void IRAM_ATTR wall() {
+    if (!goWall) return;
+    parked = true;
+    Serial.println("intrrupt");
+    return;
+
+  }
+
+
+void gotoWall() {
+  goWall = true;
+  parked = false;
+  wallArmed = false;
+
+
+  attachInterrupt(digitalPinToInterrupt(wallInterrupt), wall, RISING);
+
+  // Arm after a short delay to avoid the attach-edge / noise
+  wallArmMs = millis();
+  while (millis() - wallArmMs < 150) {    // 100–300ms works
+    drive(0,0);
+    delay(1);
+  }
+  wallArmed = true;
+
+  while (!parked) {
+    drive(220, 220);
+    delay(100);
+    Serial.println("not parked");
+  }
+  detachInterrupt(digitalPinToInterrupt(wallInterrupt));
+  Serial.println("parked");
+  drive(0,0);
+  }
+
   void testObstacle(){
     if (!obsFlag) return;
     obsFlag = false;
@@ -467,21 +502,6 @@
       Serial.println(to);
       }
       reroute= true;
-  }
-  volatile uint32_t lastWallUs = 0;
-  void IRAM_ATTR wall() {
-    if (!goWall) return;
-
-
-  uint32_t now = micros();
-  if (now - lastWallUs < 200000) return;  // 200ms debounce
-  lastWallUs = now;
-
-  parked = true;
-    if (!wallArmed) return;
-    parked= true;
-    detachInterrupt(digitalPinToInterrupt(wallInterrupt));
-
   }
 
 
@@ -693,34 +713,6 @@
       }
       }
 
-
-  void gotoWall() {
-  goWall = true;
-  parked = false;
-  wallArmed = false;
-
-
-  attachInterrupt(digitalPinToInterrupt(wallInterrupt), wall, RISING);
-
-  // Arm after a short delay to avoid the attach-edge / noise
-  wallArmMs = millis();
-  while (millis() - wallArmMs < 150) {    // 100–300ms works
-    drive(0,0);
-    delay(1);
-  }
-  wallArmed = true;
-
-  while (!parked) {
-    drive(220, 220);
-    delay(100);
-    Serial.println("not parked");
-  }
-  detachInterrupt(digitalPinToInterrupt(wallInterrupt));
-  Serial.println("parked");
-  drive(0,0);
-  }
-
-  
  void driveEdge(int from, int to) {
   portENTER_CRITICAL(&isrMux);
   curFrom = from;
@@ -883,7 +875,7 @@
   drive(0,0);
 
   pinMode(obsInterrupt, INPUT_PULLDOWN);
-  pinMode(wallInterrupt, INPUT_PULLDOWN);
+  pinMode(wallInterrupt, INPUT);
   //attachInterrupt(digitalPinToInterrupt(obsInterrupt),obstacle,RISING);
   //attachInterrupt(digitalPinToInterrupt(wallInterrupt),wall,RISING);
 
