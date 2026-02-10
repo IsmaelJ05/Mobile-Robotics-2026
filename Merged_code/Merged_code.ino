@@ -434,9 +434,8 @@
   volatile bool reroute = false;
   volatile int curFrom = -1;
   volatile int curTo   = -1;
-  portMUX_TYPE isrMux = portMUX_INITIALIZER_UNLOCKED;
-
   volatile bool wallArmed = false;
+  portMUX_TYPE isrMux = portMUX_INITIALIZER_UNLOCKED;
   volatile uint32_t wallArmMs = 0;
 
 
@@ -473,11 +472,16 @@
   void IRAM_ATTR wall() {
     if (!goWall) return;
 
+
   uint32_t now = micros();
   if (now - lastWallUs < 200000) return;  // 200ms debounce
   lastWallUs = now;
 
   parked = true;
+    if (!wallArmed) return;
+    parked= true;
+    detachInterrupt(digitalPinToInterrupt(wallInterrupt));
+
   }
 
 
@@ -495,6 +499,8 @@
     float dt = (now - lastTimeMs) / 1000.0f;
     if (dt <= 0.005f) dt = 0.005f;
     lastTimeMs = now;
+
+
 
     // 3) Line lost recovery: arc-spin based on lastEUse sign (forward-only)
     if (lineLost) {
@@ -688,7 +694,7 @@
       }
 
 
-void gotoWall() {
+  void gotoWall() {
   goWall = true;
   parked = false;
   wallArmed = false;
@@ -712,7 +718,7 @@ void gotoWall() {
   detachInterrupt(digitalPinToInterrupt(wallInterrupt));
   Serial.println("parked");
   drive(0,0);
-}
+  }
 
   
  void driveEdge(int from, int to) {
@@ -857,6 +863,7 @@ void gotoWall() {
         drive(0,0);
         delay(500);
       }
+
     delay(1000);
     routeLen = 0;
     }
