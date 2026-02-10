@@ -434,13 +434,9 @@
   volatile bool reroute = false;
   volatile int curFrom = -1;
   volatile int curTo   = -1;
+  volatile bool wallArmed = false;
   portMUX_TYPE isrMux = portMUX_INITIALIZER_UNLOCKED;
 
- /* void IRAM_ATTR obstacle() {
-    if (goWall) return;
-    obsFlag = true;
-    return;
-  }*/
   void testObstacle(){
     if (!obsFlag) return;
     obsFlag = false;
@@ -466,9 +462,10 @@
       reroute= true;
   }
   void IRAM_ATTR wall() {
-    detachInterrupt(digitalPinToInterrupt(wallInterrupt));
     if (!goWall) return;
+    if (!wallArmed) return;
     parked= true;
+    detachInterrupt(digitalPinToInterrupt(wallInterrupt));
   }
 
 
@@ -486,6 +483,8 @@
     float dt = (now - lastTimeMs) / 1000.0f;
     if (dt <= 0.005f) dt = 0.005f;
     lastTimeMs = now;
+
+
 
     // 3) Line lost recovery: arc-spin based on lastEUse sign (forward-only)
     if (lineLost) {
@@ -796,19 +795,36 @@
       }
     Serial.println("going to wall");
 
-    if (position != 1){ drivePath(position,1);}
-    driveEdge(1,6);
-    goWall = true;
-    attachInterrupt(digitalPinToInterrupt(wallInterrupt),wall,RISING);
-    parked = false;
-    
-    while(!parked){
-      drive(220,210);
-      delay(100);
-      Serial.println("not parked");
-    }
-    Serial.println("parked");
-    drive(0,0);
+if (position != 1) drivePath(position, 1);
+driveEdge(1, 6);
+
+goWall = true;
+parked = false;
+wallArmed = false;
+
+Serial.print("wall pin before attach = ");
+Serial.println(digitalRead(wallInterrupt));
+
+attachInterrupt(digitalPinToInterrupt(wallInterrupt), wall, RISING);
+
+// Drive forward briefly BEFORE arming (clears node 6 area + avoids noise)
+unsigned long t0 = millis();
+while (millis() - t0 < 500) {     // tune 200–800ms
+  drive(220, 210);
+  delay(50);
+}
+
+wallArmed = true;                
+
+while (!parked) {
+  drive(220, 220);
+  delay(50);
+  Serial.println("not parked");
+}
+
+Serial.println("parked");
+drive(0,0);
+
 
     position= 5;
     sendArrival(position);
