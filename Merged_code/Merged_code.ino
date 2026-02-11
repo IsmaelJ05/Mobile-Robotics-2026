@@ -340,7 +340,7 @@
   int motor2Phase = 20;  // Left motor direction
   
   int obsInterrupt = 17;
-  int wallInterrupt = 18; 
+  int wallInterrupt = 19; 
 
   const int N = 5;
   int AnalogPin[N] = {4, 5, 6, 7, 15};
@@ -447,36 +447,34 @@
    void IRAM_ATTR wall() {
     if (!goWall) return;
     parked = true;
-    Serial.println("intrrupt");
+    Serial.println("int");
     return;
 
   }
 
 
 void gotoWall() {
-  goWall = true;
-  parked = false;
-  wallArmed = false;
-
-
   attachInterrupt(digitalPinToInterrupt(wallInterrupt), wall, RISING);
-
   // Arm after a short delay to avoid the attach-edge / noise
   wallArmMs = millis();
   while (millis() - wallArmMs < 150) {    // 100–300ms works
     drive(0,0);
     delay(1);
   }
-  wallArmed = true;
+
+   goWall = true;
+   parked = false;
+  
 
   while (!parked) {
-    drive(220, 220);
-    delay(100);
-    Serial.println("not parked");
+    drive(150, 155);
   }
-  detachInterrupt(digitalPinToInterrupt(wallInterrupt));
-  Serial.println("parked");
   drive(0,0);
+  detachInterrupt(digitalPinToInterrupt(wallInterrupt));
+  drive(50,50);
+  delay(500);
+  drive(0,0);
+  Serial.println("parked");
   }
 
   void testObstacle(){
@@ -523,7 +521,7 @@ void gotoWall() {
 
 
     // 3) Line lost recovery: arc-spin based on lastEUse sign (forward-only)
-    if (lineLost) {
+    /*if (lineLost) {
       // Quick spin-search to reacquire (stronger than arcing)
       int search = 120;            // tune 90..160
       int base   = baseSpeed - 40; // slow a bit while searching
@@ -533,7 +531,7 @@ void gotoWall() {
 
       // Don’t run PID this cycle
       return;
-    }
+    }*/
 
     // 4) Corner slow-down
     int absErr = abs((int)error);
@@ -654,8 +652,8 @@ void gotoWall() {
     lastTimeMs = millis();
   }
   void turnLeft(){
-      drive(0,0);
-      delay(50);
+      drive(230,230);
+      delay(100);
       drive(-255,255);
       delay (200);
       while (true){
@@ -674,8 +672,8 @@ void gotoWall() {
 
       }
       void turnRight(){
-        drive(0,0);
-        delay(50);
+        drive(230,230);
+        delay(100);
         drive(255,-255);
         delay (200);
         while (true){
@@ -718,16 +716,18 @@ void gotoWall() {
   curFrom = from;
   curTo   = to;
   portEXIT_CRITICAL(&isrMux);
+  if (previous == to) {turn180();}
     if ((from==6) && (to==5)){
       if (previous == 4){turnLeft();}
       if (previous == 3){turnRight();}
       if (previous == 1){drive(255,255);
         delay(100);
       }
-      for (int i=0; i<10; i++){
+      for (int i=0; i<30; i++){
+      delay(20);
       follow();
-      delay(100);
       }
+      drive (220,220);
       gotoWall();
       position=5;
       return;
@@ -853,7 +853,7 @@ void gotoWall() {
         Serial.println(dest);
         drivePath(position,(uint8_t)dest);
         drive(0,0);
-        delay(500);
+        delay(100);
       }
 
     delay(1000);
@@ -875,7 +875,7 @@ void gotoWall() {
   drive(0,0);
 
   pinMode(obsInterrupt, INPUT_PULLDOWN);
-  pinMode(wallInterrupt, INPUT);
+  pinMode(wallInterrupt, INPUT_PULLDOWN);
   //attachInterrupt(digitalPinToInterrupt(obsInterrupt),obstacle,RISING);
   //attachInterrupt(digitalPinToInterrupt(wallInterrupt),wall,RISING);
 
@@ -905,6 +905,7 @@ void gotoWall() {
   if (i < routeLen - 1) Serial.print(" -> ");
   }
   Serial.println();
+  position=0;
   followNode(4,0);
   drive(0,0);
   delay(100);
