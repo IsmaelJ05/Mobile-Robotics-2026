@@ -290,6 +290,8 @@
  }
 
 // -------------------- TUNING (START VALUES) ------------------
+  int nodeCrossDelay= 75;
+  
   int delaySet  = 0;
   int baseSpeed = 230;          // start lower while tuning
 
@@ -467,12 +469,12 @@ void gotoWall() {
   
 
   while (!parked) {
-    drive(150, 155);
+    drive(150, 157);
   }
   drive(0,0);
   detachInterrupt(digitalPinToInterrupt(wallInterrupt));
   drive(50,50);
-  delay(500);
+  delay(400);
   drive(0,0);
   Serial.println("parked");
   }
@@ -673,7 +675,7 @@ void gotoWall() {
       }
       void turnRight(){
         drive(230,230);
-        delay(100);
+        delay(120);
         drive(255,-255);
         delay (200);
         while (true){
@@ -716,12 +718,11 @@ void gotoWall() {
   curFrom = from;
   curTo   = to;
   portEXIT_CRITICAL(&isrMux);
-  if (previous == to) {turn180();}
     if ((from==6) && (to==5)){
       if (previous == 4){turnLeft();}
       if (previous == 3){turnRight();}
       if (previous == 1){drive(255,255);
-        delay(100);
+        delay(nodeCrossDelay);
       }
       for (int i=0; i<30; i++){
       delay(20);
@@ -742,7 +743,7 @@ void gotoWall() {
         followNode(from, to);
       } else {
         drive(255, 255);
-        delay(100);
+        delay(nodeCrossDelay);
         followNode(from, to);
       }
       return;
@@ -757,7 +758,7 @@ void gotoWall() {
         followNode(from, to);
       } else {
         drive(255, 255);
-        delay(100);
+        delay(nodeCrossDelay);
         followNode(from, to);
       }
       return;
@@ -769,7 +770,7 @@ void gotoWall() {
         followNode(from, to);
       } else {
         drive(255, 255);
-        delay(100);
+        delay(nodeCrossDelay);
         followNode(from, to);
       }
       return;
@@ -780,7 +781,7 @@ void gotoWall() {
         followNode(from, to);
       } else {
         drive(255, 255);
-        delay(100);
+        delay(nodeCrossDelay);
         followNode(from, to);
       }
     return;
@@ -792,7 +793,7 @@ void gotoWall() {
         followNode(from, to);
       } else {
         drive(255, 255);
-        delay(100);
+        delay(nodeCrossDelay);
         followNode(from, to);
       }
     return;
@@ -803,14 +804,14 @@ void gotoWall() {
         followNode(from, to);
       } else {
         drive(255, 255);
-        delay(100);
+        delay(nodeCrossDelay);
         followNode(from, to);
       }
     return;
     } 
     else {
-      drive(255, 255);
-      delay(100);
+      drive(255,255);
+      delay(nodeCrossDelay);
       followNode(from, to);
       return;
     }
@@ -905,10 +906,9 @@ void gotoWall() {
   if (i < routeLen - 1) Serial.print(" -> ");
   }
   Serial.println();
-  position=0;
+
+  position = 4;
   followNode(4,0);
-  drive(0,0);
-  delay(100);
     }
 
 //==end==
