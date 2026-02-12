@@ -144,14 +144,14 @@
   };
 
   // Adjacency lists
-  const Edge adj0[] = { {7,1}, {4,1} };
-  const Edge adj1[] = { {7,1}, {6,1} };
-  const Edge adj2[] = { {3,1}, {7,1} };
-  const Edge adj3[] = { {6,2}, {2,1} };
-  const Edge adj4[] = { {6,1}, {0,1} };
+  const Edge adj0[] = { {7,2}, {4,2} };
+  const Edge adj1[] = { {7,2}, {6,1} };
+  const Edge adj2[] = { {3,2}, {7,2} };
+  const Edge adj3[] = { {6,5}, {2,2} };
+  const Edge adj4[] = { {6,5}, {0,2} };
   const Edge adj5[] = {6,10 };
-  const Edge adj6[] = { {3,2}, {4,2}, {1,1}, {5,10} };
-  const Edge adj7[] = { {2,1}, {1,1}, {0,1} };
+  const Edge adj6[] = { {3,5}, {4,5}, {1,1}, {5,10} };
+  const Edge adj7[] = { {2,2}, {1,2}, {0,2} };
 
   // Graph table
   const Edge* graph[NODE_COUNT] = {
@@ -159,6 +159,15 @@
   };
 
   const uint8_t deg[NODE_COUNT] = {2,2,2,2,2,1,4,3};
+
+  int getEdgeWeight(int from, int to) {
+  for (int k = 0; k < deg[from]; k++) {
+    if (graph[from][k].to == to) return graph[from][k].w;
+  }
+  return 1; // default if not found
+  }
+
+
   // ------------------------------------------------------------
   // DIJKSTRA SHORTEST PATH
   // Given:
@@ -293,7 +302,9 @@
   int nodeCrossDelay= 75;
   
   int delaySet  = 0;
-  int baseSpeed = 230;          // start lower while tuning
+  int baseSpeed = 250;          // start lower while tuning
+  int baseSpeed_w1 = 250;   // normal
+  int baseSpeed_w2 = 200;   // slower for weight 2
 
   // Keep Ki = 0 for digital sensors until everything else is stable
   float Ki = 0.0;
@@ -440,48 +451,41 @@
   portMUX_TYPE isrMux = portMUX_INITIALIZER_UNLOCKED;
   volatile uint32_t wallArmMs = 0;
 
-
- /* void IRAM_ATTR obstacle() {
-    if (goWall) return;
-    obsFlag = true;
-    return;
-  }*/
-   void IRAM_ATTR wall() {
+  void IRAM_ATTR wall() {
     if (!goWall) return;
     parked = true;
     Serial.println("int");
     return;
 
   }
+  void gotoWall() {
+    attachInterrupt(digitalPinToInterrupt(wallInterrupt), wall, RISING);
+    // Arm after a short delay to avoid the attach-edge / noise
+    wallArmMs = millis();
+    while (millis() - wallArmMs < 150) {    // 100–300ms works
+      drive(0,0);
+      delay(1);
+    }
 
+    goWall = true;
+    parked = false;
+    
 
-void gotoWall() {
-  attachInterrupt(digitalPinToInterrupt(wallInterrupt), wall, RISING);
-  // Arm after a short delay to avoid the attach-edge / noise
-  wallArmMs = millis();
-  while (millis() - wallArmMs < 150) {    // 100–300ms works
+    while (!parked) {
+      drive(150, 157);
+      delay(10);
+    }
+
     drive(0,0);
-    delay(1);
-  }
-
-   goWall = true;
-   parked = false;
-  
-
-  while (!parked) {
-    drive(150, 157);
-  }
-  drive(0,0);
-  detachInterrupt(digitalPinToInterrupt(wallInterrupt));
-  drive(50,50);
-  delay(400);
-  drive(0,0);
-  Serial.println("parked");
-  }
+    detachInterrupt(digitalPinToInterrupt(wallInterrupt));
+    drive(50,50);
+    delay(400);
+    drive(0,0);
+    Serial.println("parked");
+    }
 
   void testObstacle(){
-    if (!obsFlag) return;
-    obsFlag = false;
+    if(digitalRead(obsInterrupt)==0){return;}
     drive(0,0);
     delay(3000);
     int from, to;
@@ -699,7 +703,13 @@ void gotoWall() {
   int previous =4;
   int position=0;
     void followNode(int from,int to){
+        portENTER_CRITICAL(&isrMux);
+        curFrom = from;
+        curTo   = to;
+        portEXIT_CRITICAL(&isrMux);
+        
         if (previous==to){turn180();}
+        obsFlag = false;
         while (true){
               testObstacle();
               if (reroute) return;
@@ -714,6 +724,16 @@ void gotoWall() {
       }
 
  void driveEdge(int from, int to) {
+  int w = getEdgeWeight(from, to);
+
+  // choose speed based on weight
+  if (w == 4) {
+    baseSpeed = baseSpeed_w2;
+  }
+  else {
+    baseSpeed = baseSpeed_w1;
+  }
+  
   portENTER_CRITICAL(&isrMux);
   curFrom = from;
   curTo   = to;
@@ -725,7 +745,7 @@ void gotoWall() {
         delay(nodeCrossDelay);
       }
       for (int i=0; i<30; i++){
-      delay(20);
+      delay(10);
       follow();
       }
       drive (220,220);
@@ -878,7 +898,6 @@ void gotoWall() {
   pinMode(obsInterrupt, INPUT_PULLDOWN);
   pinMode(wallInterrupt, INPUT_PULLDOWN);
   //attachInterrupt(digitalPinToInterrupt(obsInterrupt),obstacle,RISING);
-  //attachInterrupt(digitalPinToInterrupt(wallInterrupt),wall,RISING);
 
   analogReadResolution(12);        // 0..4095
   analogSetAttenuation(ADC_11db);  // best for ~0..3.3V
@@ -908,7 +927,9 @@ void gotoWall() {
   Serial.println();
 
   position = 4;
-  followNode(4,0);
+  driveEdge(4,0);
+  drive(0,0);
+  delay(200);
     }
 
 //==end==

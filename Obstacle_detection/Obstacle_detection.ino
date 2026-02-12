@@ -1,6 +1,7 @@
 int trig = 4;
 int echo = 5;
 int wall = 18;
+int obs = 17;
 
 long duration;
 float distance;
@@ -13,8 +14,10 @@ void setup()
   pinMode(trig, OUTPUT);
   pinMode(echo, INPUT);
   pinMode(wall, OUTPUT);
+  pinMode(obs, OUTPUT);
 
   digitalWrite(wall, LOW);
+  digitalWrite(obs, LOW);
   digitalWrite(trig, LOW);
 }
 
@@ -35,12 +38,23 @@ float readDistance()
 
 void loop()
 {
+  delay(10);
   float dist = readDistance();
- if((dist>2.0)&&(dist<3.0)){
+ if((dist>4.0)&&(dist<7.0)){
   digitalWrite(wall, LOW);
   digitalWrite(wall, HIGH);
   delayMicroseconds(500);
   digitalWrite(wall, LOW);
+  Serial.print("wall");
+  Serial.println(dist);
+  delay(1000);
+ }
+ if((dist> 7.0 )&&(dist < 12.0)){
+  digitalWrite(obs, LOW);
+  digitalWrite(obs, HIGH);
+  delay(1000);
+  digitalWrite(obs, LOW);
+  Serial.print("obs");
   Serial.println(dist);
  }
   
