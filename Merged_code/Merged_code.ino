@@ -1,6 +1,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <Arduino.h>
+<<<<<<< Updated upstream
 #include <ESP32Servo.h>
 
 //--------------PID profiles---------
@@ -106,7 +107,113 @@
     turnSlewRate = p.turnSlewRate;
   }
 
+=======
+// -------------------- PID PROFILES --------------------
+  float Ki = 0.0f;
+  float integralLimit = 200.0f;
+  // Profile for normal edges (w1)
+  struct PIDProfile {
+    int   baseSpeed;
+    int   slowDown1;
+    int   slowDown2;
+>>>>>>> Stashed changes
 
+    float Kp_center;
+    float Kd_center;
+    float Kp_corner;
+    float Kd_corner;
+
+    float maxTurn_center;
+    float maxTurn_corner;
+
+    float innerErrorScale;
+    float innerDScale;
+
+    float dAlpha;
+    float turnSlewRate;
+  };
+
+  // Tune these independently
+  PIDProfile pid_w1 = {
+    /*baseSpeed*/       250,
+    /*slowDown1*/        30,
+    /*slowDown2*/      150,
+
+    /*Kp_center*/      30.0f,
+    /*Kd_center*/      15.0f,
+    /*Kp_corner*/      45.0f,
+    /*Kd_corner*/      22.0f,
+
+    /*maxTurn_center*/  145.0f,
+    /*maxTurn_corner*/ 180.0f,
+
+    /*innerErrorScale*/ 0.60f,
+    /*innerDScale*/     0.60f,
+
+    /*dAlpha*/          0.88f,
+    /*turnSlewRate*/   200.0f
+  };
+
+  // Profile for sharp edges
+  PIDProfile pid_w2 = {
+    /*baseSpeed*/       250,
+    /*slowDown1*/        50,
+    /*slowDown2*/       120,
+
+    /*Kp_center*/      30.0f,
+    /*Kd_center*/      10.0f,
+    /*Kp_corner*/      45.0f,
+    /*Kd_corner*/      22.0f,
+
+    /*maxTurn_center*/  150.0f,
+    /*maxTurn_corner*/ 250.0f,
+
+    /*innerErrorScale*/ 0.50f,
+    /*innerDScale*/     0.70f,
+
+    /*dAlpha*/          0.90f,
+    /*turnSlewRate*/   400.0f
+  };
+
+  // --- ACTIVE (used by follow()) ---
+    int   baseSpeed = 220;
+    int   slowDown1 = 40;
+    int   slowDown2 = 150;
+
+    float Kp_center = 28.0f;
+    float Kd_center = 12.0f;
+    float Kp_corner = 40.0f;
+    float Kd_corner = 24.0f;
+
+    float maxTurn_center = 95.0f;
+    float maxTurn_corner = 350.0f;
+
+    float innerErrorScale = 0.60f;
+    float innerDScale     = 0.60f;
+
+    float dAlpha_use    = 0.88f;
+    float turnSlewRate  = 350.0f;
+
+  // Helper: copy a profile into the active variables
+    void applyPIDProfile(const PIDProfile& p) {
+      baseSpeed       = p.baseSpeed;
+      slowDown1       = p.slowDown1;
+      slowDown2       = p.slowDown2;
+
+      Kp_center       = p.Kp_center;
+      Kd_center       = p.Kd_center;
+      Kp_corner       = p.Kp_corner;
+      Kd_corner       = p.Kd_corner;
+
+      maxTurn_center  = p.maxTurn_center;
+      maxTurn_corner  = p.maxTurn_corner;
+
+      innerErrorScale = p.innerErrorScale;
+      innerDScale     = p.innerDScale;
+
+      dAlpha_use      = p.dAlpha;
+      turnSlewRate    = p.turnSlewRate;
+    }
 // ===== Wi-Fi details =====
   const char* ssid = "iot";
   const char* password = "premorbidly55telephoning";
@@ -203,8 +310,8 @@
     String url = String(server) + "/api/arrived/" + TEAM_ID;
     String postData = "position=" + String(position);
 
-    Serial.println("Sending POST to server...");
-    Serial.println(postData);
+    //Serial.println("Sending POST to server...");
+    //Serial.println(postData);
 
     http.begin(url);
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");
@@ -215,18 +322,18 @@
       String response = http.getString();
       response.trim();
 
-      Serial.print("HTTP Status: ");
-      Serial.println(code);
+      //Serial.print("HTTP Status: ");
+      //Serial.println(code);
 
-      Serial.print("Server response: ");
-      Serial.println(response);
+      //Serial.print("Server response: ");
+      //Serial.println(response);
 
       if (response == "Finished") {
-        Serial.println("Route complete!");
+        //Serial.println("Route complete!");
       } else {
         int nextDestination = response.toInt();
-        Serial.print("Next destination: ");
-        Serial.println(nextDestination);
+        //Serial.print("Next destination: ");
+        //Serial.println(nextDestination);
       }
     } else {
       Serial.print("POST failed, error: ");
@@ -259,6 +366,7 @@
   };
 
   // Adjacency lists
+<<<<<<< Updated upstream
   const Edge adj0[] = { { 7, 2 }, { 4, 2 } };
   const Edge adj1[] = { { 7, 2 }, { 6, 1 } };
   const Edge adj2[] = { { 3, 2 }, { 7, 2 } };
@@ -267,6 +375,16 @@
   const Edge adj5[] = { 6, 10 };
   const Edge adj6[] = { { 3, 5 }, { 4, 5 }, { 1, 1 }, { 5, 10 } };
   const Edge adj7[] = { { 2, 2 }, { 1, 2 }, { 0, 2 } };
+=======
+  const Edge adj0[] = { {7,2}, {4,2} };
+  const Edge adj1[] = { {7,2}, {6,1} };
+  const Edge adj2[] = { {3,2}, {7,2} };
+  const Edge adj3[] = { {6,4}, {2,2} };
+  const Edge adj4[] = { {6,4}, {0,2} };
+  const Edge adj5[] = {6,10 };
+  const Edge adj6[] = { {3,4}, {4,4}, {1,1}, {5,10} };
+  const Edge adj7[] = { {2,2}, {1,2}, {0,2} };
+>>>>>>> Stashed changes
 
   // Graph table
   const Edge* graph[NODE_COUNT] = {
@@ -414,6 +532,7 @@
   }
 
 // -------------------- TUNING (START VALUES) ------------------
+<<<<<<< Updated upstream
   int nodeCrossDelay = 75;
 
   int delaySet = 0;
@@ -428,6 +547,18 @@
 
 // -------------------- PINS --------------------
   int motor1PWM = 37;    // Right motor PWM
+=======
+  int nodeCrossDelay= 100;
+  int delaySet  = 0;
+  // Weights for 5 sensors
+  int weights[5] = {2, 1, 0, -1, -2};
+  // Digital threshold
+  int threshold = 500;                  // adjust 1100–1600 if needed
+  const bool SENSOR_HIGH_ON_LINE = true; // RAW HIGH when on line (your sensor ranges)
+
+//-------------------- PINS --------------------
+  int motor1PWM   = 37;  // Right motor PWM
+>>>>>>> Stashed changes
   int motor1Phase = 38;  // Right motor direction
   int motor2PWM = 39;    // Left motor PWM
   int motor2Phase = 20;  // Left motor direction
@@ -487,10 +618,31 @@
   }
 
 // -------------------- READ DIGITAL ERROR --------------------
+  void printSensorValues() {
+
+      Serial.print("RAW:   ");
+      for (int i = 0; i < N; i++) {
+        int raw = analogRead(AnalogPin[i]);
+        Serial.print(raw);
+        Serial.print("\t");
+      }
+
+      Serial.print(" | DIG: ");
+
+      for (int i = 0; i < N; i++) {
+        int raw = analogRead(AnalogPin[i]);
+        int digital = sensorToDigital(raw);
+        Serial.print(digital);
+        Serial.print("\t");
+      }
+
+      Serial.println();
+    }
 
   int sensorToDigital(int raw) {
     // Returns 1 if sensor "sees the line", else 0
     if (SENSOR_HIGH_ON_LINE) return (raw > threshold) ? 1 : 0;
+
     return (raw < threshold) ? 1 : 0;
   }
 
@@ -540,7 +692,6 @@
   void IRAM_ATTR wall() {
     if (!goWall) return;
     parked = true;
-    Serial.println("int");
     return;
   }
   void gotoWall() {
@@ -554,12 +705,18 @@
 
     goWall = true;
     parked = false;
+<<<<<<< Updated upstream
 
+=======
+    
+     drive(150,156);
+     delay(3000);
+>>>>>>> Stashed changes
 
     while (!parked) {
-      drive(150, 157);
-      delay(10);
+      drive(100, 103);
     }
+<<<<<<< Updated upstream
 
     drive(0, 0);
     detachInterrupt(digitalPinToInterrupt(wallInterrupt));
@@ -581,6 +738,25 @@
 
     drive(0, 0);
     delay(500);
+=======
+    drive(0,0);
+    detachInterrupt(digitalPinToInterrupt(wallInterrupt));
+    drive(35,35);
+    delay(3300);
+    drive(0,0);
+    Serial.println("parked");
+    }
+  static bool latched = false;
+  void testObstacle(){
+    if (latched) return;
+    if(digitalRead(obsInterrupt)==0){
+      latched = false;
+      return;}
+    latched = true;
+    
+    drive(0,0);
+    delay(100);
+>>>>>>> Stashed changes
     int from, to;
     portENTER_CRITICAL(&isrMux);
     from = curFrom;
@@ -755,6 +931,7 @@
     rightSpeed = clamp255(rightSpeed);
     leftSpeed = clamp255(leftSpeed);
     drive(rightSpeed, leftSpeed);
+  
   }
 
 //------turn at node----
@@ -873,6 +1050,7 @@
           return;
           }
         
+<<<<<<< Updated upstream
       follow();
       if (detectNode()) {
         previous = position;
@@ -901,6 +1079,57 @@
       if (previous == 3) { turnRight(); }
       if (previous == 1) {
         drive(255, 255);
+=======
+        if (previous==to){turn180();}
+        obsFlag = false;
+        while (true){
+              testObstacle();
+              if (reroute) {
+                turn180();
+                portENTER_CRITICAL(&isrMux);
+                curFrom = to;
+                curTo   = from;
+                portEXIT_CRITICAL(&isrMux);
+                while (true){
+                  follow();
+                  if (detectNode()){
+                    drive(0,0);
+                    position= from;
+                    previous = to;
+                    return;
+                  }
+                }
+                }
+
+              follow();
+              if (detectNode()){
+                previous = from;
+                position = to;
+                return;
+                }
+      }
+      }
+
+ void driveEdge(int from, int to) {
+  int w = getEdgeWeight(from, to);
+
+  // choose speed based on weight
+  if (w >2 && w<8) {
+    applyPIDProfile(pid_w2);
+  }
+  else {
+    applyPIDProfile(pid_w1);
+  }
+  
+  portENTER_CRITICAL(&isrMux);
+  curFrom = from;
+  curTo   = to;
+  portEXIT_CRITICAL(&isrMux);
+    if ((from==6) && (to==5)){
+      if (previous == 4){turnLeft();}
+      if (previous == 3){turnRight();}
+      if (previous == 1){drive(255,255);
+>>>>>>> Stashed changes
         delay(nodeCrossDelay);
       }
       for (int i = 0; i < 30; i++) {
@@ -1013,7 +1242,12 @@
         }
       }
     }
+<<<<<<< Updated upstream
     sendArrival(position);
+=======
+      drive(0,0);
+      sendArrival(position);
+>>>>>>> Stashed changes
   }
 
 //-----------loop--------------
@@ -1024,12 +1258,21 @@
     } else {
       for (int i = 0; i < routeLen; i++) {
         int dest = routeNodes[i];
+<<<<<<< Updated upstream
         if (dest == position) { continue; }
         Serial.print("Driving to : ");
         Serial.println(dest);
         drivePath(position, (uint8_t)dest);
         drive(0, 0);
         delay(100);
+=======
+        if (dest==position){continue;}
+        //Serial.print("Driving to : ");
+        //Serial.println(dest);
+        drivePath(position,(uint8_t)dest);
+        drive(0,0);
+        delay(500);
+>>>>>>> Stashed changes
       }
 
       delay(1000);
@@ -1037,6 +1280,7 @@
     }
   }
 
+<<<<<<< Updated upstream
 // -------------------- SETUP --------------------
   void setup() {
     Serial.begin(9600);
@@ -1074,6 +1318,14 @@
       Serial.println("No route received.");
       return;
     }
+=======
+  position = 4;
+  driveEdge(4,0);
+  drive(0,0);
+  delay(200);
+  sendArrival(position);
+  }
+>>>>>>> Stashed changes
 
     if (!parseRouteDynamic(routeStr, routeNodes, routeLen)) {
       Serial.println("Failed to parse route!");
