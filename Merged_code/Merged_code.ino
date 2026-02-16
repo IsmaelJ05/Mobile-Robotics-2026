@@ -867,9 +867,10 @@
     if (previous == to) { turn180(); }
     while (true) {
       testObstacle();
-      if (reroute) {
+      if (obsflag) {
           turn180();
           followNode(to,from);
+          obsFlag = false;
           return;
           }
         
