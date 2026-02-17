@@ -1,0 +1,66 @@
+#include <Arduino.h>
+
+const int BUZZER_PIN = 40;
+const int BUZ_CH = 0;
+const int BUZ_RES = 8;
+
+// UFO sweep state
+int f = 500;
+int dir = 1;                 // +1 up, -1 down
+const int F_MIN = 450;
+const int F_MAX = 2000;
+const int STEP  = 18;
+
+unsigned long lastStep = 0;
+const int STEP_MS = 8;       // sound smoothness
+
+void buzzerSetup() {
+  ledcSetup(BUZ_CH, 2000, BUZ_RES);
+  ledcAttachPin(BUZZER_PIN, BUZ_CH);
+  ledcWriteTone(BUZ_CH, 0);
+}
+
+inline void buzzerStop() {
+  ledcWriteTone(BUZ_CH, 0);
+}
+
+inline void buzzerTone(int freq) {
+  ledcWriteTone(BUZ_CH, freq);
+}
+
+// Call this every loop
+void ufoUpdateMoving(int leftSpeed, int rightSpeed) {
+  bool moving = (abs(leftSpeed) > 5) || (abs(rightSpeed) > 5);
+
+  if (!moving) {
+    buzzerStop();
+    return;
+  }
+
+  unsigned long now = millis();
+  if (now - lastStep >= STEP_MS) {
+    lastStep = now;
+
+    f += dir * STEP;
+    if (f >= F_MAX) { f = F_MAX; dir = -1; }
+    if (f <= F_MIN) { f = F_MIN; dir =  1; }
+
+    buzzerTone(f);
+  }
+}
+
+void setup() {
+  buzzerSetup();
+}
+
+void loop() {
+  // مثال: replace these with your real motor commands
+  int leftSpeed  = 200;  // e.g. -255..255
+  int rightSpeed = 200;
+
+  // your line following / driving code sets leftSpeed/rightSpeed...
+  // setMotors(leftSpeed, rightSpeed);
+
+  // then update buzzer based on motion
+  ufoUpdateMoving(leftSpeed, rightSpeed);
+}
