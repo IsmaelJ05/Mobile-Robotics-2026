@@ -41,7 +41,7 @@ void loop()
 
   float dist = readDistance();
 
- if((dist>8)&&(dist<10)){
+ if((dist>5)&&(dist<7)){
 
   digitalWrite(wall, LOW);
   digitalWrite(wall, HIGH);

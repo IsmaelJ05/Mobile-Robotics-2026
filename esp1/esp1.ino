@@ -29,8 +29,8 @@
 
   // Profile for normal edges
   PIDProfile pid_w1 = {
-    /*baseSpeed*/ 220,
-    /*slowDown1*/ 40,
+    /*baseSpeed*/ 250,
+    /*slowDown1*/ 70,
     /*slowDown2*/ 120,
     /*Kp_center*/ 28.0f,
     /*Kd_center*/ 12.0f,
@@ -47,18 +47,18 @@
   // Profile for slower / heavy edges
   PIDProfile pid_w2 = {
     /*baseSpeed*/ 250,
-    /*slowDown1*/ 80,
-    /*slowDown2*/ 150,
+    /*slowDown1*/ 100,
+    /*slowDown2*/ 170,
     /*Kp_center*/ 28.0f,
     /*Kd_center*/ 12.0f,
     /*Kp_corner*/ 40.0f,
     /*Kd_corner*/ 24.0f,
-    /*maxTurn_center*/ 80.0f,
+    /*maxTurn_center*/ 150.0f,
     /*maxTurn_corner*/ 300.0f,
     /*innerErrorScale*/ 0.50f,
     /*innerDScale*/ 0.70f,
     /*dAlpha*/ 0.90f,
-    /*turnSlewRate*/ 350.0
+    /*turnSlewRate*/ 400.0f
   };
 
   // --- ACTIVE (used by follow()) ---
@@ -601,9 +601,6 @@
       drive(0,0);
       delay(1);
     }
-
-    goWall = true;
-    parked = false;
     
     drive(150, 156);
   //to remove obstacal sequence comment from here
@@ -627,7 +624,8 @@
     drive(0,0);
   //====================
     
-
+    goWall = true;
+    parked= false;
 
     while (!parked) {
       drive(100, 103);
@@ -1067,8 +1065,14 @@
   pinMode(motor1Phase, OUTPUT);
   pinMode(motor2PWM, OUTPUT);
   pinMode(motor2Phase, OUTPUT);
-
   drive(0,0);
+  delay(500);
+  drive(0,0);
+  delay(500);
+  drive(0,0);
+  delay(500);
+  drive(0,0);
+
   s.setPeriodHertz(50);                  // standard servo PWM
   s.attach(SERVO_PIN, PULSE_MIN, PULSE_MAX);
   s.writeMicroseconds(1500);  

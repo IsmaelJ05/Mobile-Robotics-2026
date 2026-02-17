@@ -5,9 +5,50 @@
 #include <Adafruit_Sensor.h>
 
 // ===== I2C pins & OLED address =====
-#define I2C_SDA   8
-#define I2C_SCL   9
+#define I2C_SDA   3
+#define I2C_SCL   10
 #define OLED_ADDR 0x3C   // change to 0x3D if needed
+
+
+int trig = 4;
+int echo = 5;
+int wallPin = 18;
+int obsPin = 17;
+
+long duration;
+float distance;
+//========= obstacles==============
+float readDistance()
+{
+  digitalWrite(trig, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trig, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trig, LOW);
+
+  duration = pulseIn(echo, HIGH, 30000);
+
+  if (duration == 0) return 500;
+
+  return duration / 58.0;
+}
+void testObs()
+{
+
+  float dist = readDistance();
+
+ if((dist>8)&&(dist<10)){
+
+  digitalWrite(wallPin, LOW);
+  digitalWrite(wallPin, HIGH);
+  delayMicroseconds(500);
+  digitalWrite(wallPin, LOW);
+  digitalWrite(obsPin, LOW);
+  digitalWrite(obsPin, HIGH);
+  delay(50);
+  digitalWrite(obsPin, LOW);
+ }
+}
 
 // ===== OLED =====
 #define SCREEN_WIDTH 128
@@ -52,7 +93,16 @@ void calibrateIMU(unsigned samples = 200) {
 // Setup
 // ============================================================
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
+
+  pinMode(trig, OUTPUT);
+  pinMode(echo, INPUT);
+  pinMode(wallPin, OUTPUT);
+  pinMode(obsPin, OUTPUT);
+
+  digitalWrite(wallPin, LOW);
+  digitalWrite(obsPin, LOW);
+  digitalWrite(trig, LOW);
 
   Wire.begin(I2C_SDA, I2C_SCL);
   Wire.setClock(100000);
@@ -136,4 +186,7 @@ void loop() {
     display.print(" m/s");
     display.display();
   }
+
+
+  testObs();
 }
