@@ -1,9 +1,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <Arduino.h>
-<<<<<<< Updated upstream
 #include <ESP32Servo.h>
-
 //--------------PID profiles---------
 
 
@@ -39,28 +37,28 @@
     /*Kp_corner*/ 40.0f,
     /*Kd_corner*/ 24.0f,
     /*maxTurn_center*/ 95.0f,
-    /*maxTurn_corner*/ 350.0f,
+    /*maxTurn_corner*/ 250.0f,
     /*innerErrorScale*/ 0.60f,
     /*innerDScale*/ 0.60f,
     /*dAlpha*/ 0.88f,
-    /*turnSlewRate*/ 350.0f
+    /*turnSlewRate*/ 200
   };
 
   // Profile for slower / heavy edges
   PIDProfile pid_w2 = {
-    /*baseSpeed*/ 180,
+    /*baseSpeed*/ 250,
     /*slowDown1*/ 80,
-    /*slowDown2*/ 120,
-    /*Kp_center*/ 20.0f,
-    /*Kd_center*/ 10.0f,
-    /*Kp_corner*/ 34.0f,
-    /*Kd_corner*/ 22.0f,
+    /*slowDown2*/ 150,
+    /*Kp_center*/ 28.0f,
+    /*Kd_center*/ 12.0f,
+    /*Kp_corner*/ 40.0f,
+    /*Kd_corner*/ 24.0f,
     /*maxTurn_center*/ 80.0f,
     /*maxTurn_corner*/ 300.0f,
     /*innerErrorScale*/ 0.50f,
     /*innerDScale*/ 0.70f,
     /*dAlpha*/ 0.90f,
-    /*turnSlewRate*/ 280.0f
+    /*turnSlewRate*/ 350.0
   };
 
   // --- ACTIVE (used by follow()) ---
@@ -106,34 +104,20 @@
     dAlpha_use = p.dAlpha;
     turnSlewRate = p.turnSlewRate;
   }
-=======
-
-#include <ESP32Servo.h>
-
-// -------------------- PID PROFILES --------------------
-  float Ki = 0.0f;
-  float integralLimit = 200.0f;
-  // Profile for normal edges (w1)
-  struct PIDProfile {
-    int   baseSpeed;
-    int   slowDown1;
-    int   slowDown2;
->>>>>>> Stashed changes
-
 
 // ===== Wi-Fi details =====
-  const char* ssid = "iot";
+  const char* ssid     = "iot";
   const char* password = "premorbidly55telephoning";
 
   // ===== Server details =====
-  const char* server = "http://3.250.38.184:8000";
+  const char* server  = "http://3.250.38.184:8000";
   const char* TEAM_ID = "diyh4437";
 
-// ===== Route (always 6 nodes: 0..5 in some order) =====
-  int routeLen = 0;    //
-  int routeNodes[20];  //Max size that server can send
+  // ===== Route (always 6 nodes: 0..5 in some order) =====
+  int routeLen =0 ; //
+  int routeNodes[20]; //Max size that server can send
 
-  // Parse exactly x comma-separated ints into routeNodes[]
+// Parse exactly x comma-separated ints into routeNodes[]
   bool parseRouteDynamic(const String& routeStr, int out[], int& outLen) {
     outLen = 0;
     int start = 0;
@@ -142,7 +126,7 @@
       int comma = routeStr.indexOf(',', start);
       if (comma == -1) comma = routeStr.length();
 
-      if (outLen >= 20) return false;  // prevent overflow
+      if (outLen >= 20) return false; // prevent overflow
 
       String token = routeStr.substring(start, comma);
       token.trim();
@@ -250,21 +234,12 @@
     http.end();
   }
 
-
-
 //------pathfinding-----
-  enum Node { N0,
-              N1,
-              N2,
-              N3,
-              N4,
-              N5,
-              N6,
-              N7,
-              NODE_COUNT };
+
+  enum Node { N0, N1, N2, N3, N4, N5, N6, N7, NODE_COUNT };
   bool blocked[NODE_COUNT][NODE_COUNT] = {};
   int blockedFrom = -1;
-  int blockedTo = -1;
+  int blockedTo   = -1;
 
   struct Edge {
     uint8_t to;
@@ -272,27 +247,27 @@
   };
 
   // Adjacency lists
+  const Edge adj0[] = { {7,2}, {4,2} };
+  const Edge adj1[] = { {7,2}, {6,1} };
+  const Edge adj2[] = { {3,2}, {7,2} };
+  const Edge adj3[] = { {6,5}, {2,2} };
+  const Edge adj4[] = { {6,5}, {0,2} };
+  const Edge adj5[] = {6,10 };
+  const Edge adj6[] = { {3,5}, {4,5}, {1,1}, {5,10} };
+  const Edge adj7[] = { {2,2}, {1,2}, {0,2} };
 
-  const Edge adj0[] = { { 7, 2 }, { 4, 2 } };
-  const Edge adj1[] = { { 7, 2 }, { 6, 1 } };
-  const Edge adj2[] = { { 3, 2 }, { 7, 2 } };
-  const Edge adj3[] = { { 6, 5 }, { 2, 2 } };
-  const Edge adj4[] = { { 6, 5 }, { 0, 2 } };
-  const Edge adj5[] = { 6, 10 };
-  const Edge adj6[] = { { 3, 5 }, { 4, 5 }, { 1, 1 }, { 5, 10 } };
-  const Edge adj7[] = { { 2, 2 }, { 1, 2 }, { 0, 2 } };
-
+  // Graph table
   const Edge* graph[NODE_COUNT] = {
     adj0, adj1, adj2, adj3, adj4, adj5, adj6, adj7
   };
 
-  const uint8_t deg[NODE_COUNT] = { 2, 2, 2, 2, 2, 1, 4, 3 };
+  const uint8_t deg[NODE_COUNT] = {2,2,2,2,2,1,4,3};
 
   int getEdgeWeight(int from, int to) {
-    for (int k = 0; k < deg[from]; k++) {
-      if (graph[from][k].to == to) return graph[from][k].w;
-    }
-    return 1;  // default if not found
+  for (int k = 0; k < deg[from]; k++) {
+    if (graph[from][k].to == to) return graph[from][k].w;
+  }
+  return 1; // default if not found
   }
 
 
@@ -386,8 +361,8 @@
         // Check if going via u improves dist[v]:
         //   dist[u] + w < dist[v]
         if (dist[u] + w < dist[v]) {
-          dist[v] = dist[u] + w;  // update best known distance to v
-          prev[v] = u;            // record that best predecessor of v is u
+          dist[v] = dist[u] + w; // update best known distance to v
+          prev[v] = u;           // record that best predecessor of v is u
         }
       }
     }
@@ -401,7 +376,7 @@
     //   goal -> prev[goal] -> prev[prev[goal]] ... until start
     //
     // This gives a reversed path, so we store into 'rev[]' first.
-    uint8_t rev[16];  // small buffer (safe for NODE_COUNT=8)
+    uint8_t rev[16];   // small buffer (safe for NODE_COUNT=8)
     uint8_t len = 0;
 
     // Start from goal and repeatedly step to its predecessor
@@ -424,50 +399,45 @@
 
     // Return the number of nodes in the path
     return len;
-  }
+ }
 
 // -------------------- TUNING (START VALUES) ------------------
-  int nodeCrossDelay = 75;
-
-  int delaySet = 0;
+  int nodeCrossDelay= 75;
+  
+  int delaySet  = 0;
+  
 
   // Weights for 5 sensors
-  int weights[5] = { 2, 1, 0, -1, -2 };
+  int weights[5] = {2, 1, 0, -1, -2};
 
   // Digital threshold
-  int threshold = 800;                    // adjust 1100–1600 if needed
-  const bool SENSOR_HIGH_ON_LINE = true;  // RAW HIGH when on line (your sensor ranges)
+  int threshold = 800;                  // adjust 1100–1600 if needed
+  const bool SENSOR_HIGH_ON_LINE = true; // RAW HIGH when on line (your sensor ranges)
 
+  
 
-<<<<<<< Updated upstream
 // -------------------- PINS --------------------
-  int motor1PWM = 37;    // Right motor PWM
-=======
-
-
-//-------------------- PINS --------------------
   int motor1PWM   = 37;  // Right motor PWM
->>>>>>> Stashed changes
   int motor1Phase = 38;  // Right motor direction
-  int motor2PWM = 39;    // Left motor PWM
+  int motor2PWM   = 39;  // Left motor PWM
   int motor2Phase = 20;  // Left motor direction
-
+  
   int obsInterrupt = 17;
-  int wallInterrupt = 19;
+  int wallInterrupt = 19; 
 
   const int N = 5;
-  int AnalogPin[N] = { 4, 5, 6, 7, 15 };
+  int AnalogPin[N] = {4, 5, 6, 7, 15};
 
-  int DigitalValue[N] = { 0, 0, 0, 0, 0 };
+  int DigitalValue[N] = {0,0,0,0,0};
 
 // -------------------- PID STATE --------------------
   float integral = 0.0f;
-  float lastEUse = 0.0f;  // store EFFECTIVE error used by PID
+  float lastEUse = 0.0f;     // store EFFECTIVE error used by PID
   float dFilt = 0.0f;
   float lastTurn = 0.0f;
   unsigned long lastTimeMs = 0;
 
-  // -------------------- Clamp 255--------------------
+// -------------------- Clamp 255--------------------
   int clamp255(int v) {
     if (v < 0) return 0;
     if (v > 255) return 255;
@@ -475,178 +445,37 @@
   }
 
 // -------------------- MOTOR CONTROL --------------------
-  void rightFoward(int speed) {
+  void rightFoward(int speed){
     digitalWrite(motor1Phase, HIGH);
     analogWrite(motor1PWM, speed);
   }
-  void rightReverse(int speed) {
+  void rightReverse(int speed){
     digitalWrite(motor1Phase, LOW);
     analogWrite(motor1PWM, abs(speed));
   }
-  void leftFoward(int speed) {
+  void leftFoward(int speed){
     digitalWrite(motor2Phase, LOW);
     analogWrite(motor2PWM, speed);
   }
-  void leftReverse(int speed) {
+  void leftReverse(int speed){
     digitalWrite(motor2Phase, HIGH);
     analogWrite(motor2PWM, abs(speed));
   }
 
   // Forward-only (stable for PID)
   void drive(int rightSpeed, int leftSpeed) {
-    if (rightSpeed > 0) {
-      rightFoward(rightSpeed);
-    } else {
-      rightReverse(rightSpeed);
-    }
-    if (leftSpeed > 0) {
-      leftFoward(leftSpeed);
-    } else {
-      leftReverse(leftSpeed);
-    }
+    if (rightSpeed>0){rightFoward(rightSpeed);}
+      else{rightReverse(rightSpeed);}
+    if (leftSpeed>0){leftFoward(leftSpeed);}
+      else{leftReverse(leftSpeed);}
   }
-
-// -------------------- READ DIGITAL ERROR --------------------
-
-  int sensorToDigital(int raw) {
-    // Returns 1 if sensor "sees the line", else 0
-    if (SENSOR_HIGH_ON_LINE) return (raw > threshold) ? 1 : 0;
-    return (raw < threshold) ? 1 : 0;
-  }
-
-  void readSensor() {
-    for (int i = 0; i < 5; i++) {
-      DigitalValue[i] = sensorToDigital(analogRead(AnalogPin[i]));
-    }
-  }
-  /*
-      Threshold sensors into 0/1, then:
-        error = Σ(DigitalValue[i] * weights[i])
-
-      lineLost => no sensors see the line (sumOn == 0)
-    */
-
-  float readLineErrorDigital(bool& lineLostOut) {
-    int sumOn = 0;
-    int e = 0;
-
-    for (int i = 0; i < N; i++) {
-      int raw = analogRead(AnalogPin[i]);
-      DigitalValue[i] = sensorToDigital(raw);
-      sumOn += DigitalValue[i];
-
-      e += DigitalValue[i] * weights[i];
-    }
-
-    lineLostOut = (sumOn == 0);
-
-    // If lost, keep lastEUse sign so recovery turns the right way
-    if (lineLostOut) return lastEUse;
-
-    return (float)e;
-  }
-
-//----- detector interupts---------
-  volatile bool goWall = false;
-  volatile bool parked = false;
-  volatile bool obsFlag = false;
-  volatile bool reroute = false;
-  volatile int curFrom = -1;
-  volatile int curTo = -1;
-  volatile bool wallArmed = false;
-  portMUX_TYPE isrMux = portMUX_INITIALIZER_UNLOCKED;
-  volatile uint32_t wallArmMs = 0;
-
-  void IRAM_ATTR wall() {
-    if (!goWall) return;
-    parked = true;
-    Serial.println("int");
-    return;
-  }
-  void gotoWall() {
-    attachInterrupt(digitalPinToInterrupt(wallInterrupt), wall, RISING);
-    // Arm after a short delay to avoid the attach-edge / noise
-    wallArmMs = millis();
-    while (millis() - wallArmMs < 150) {  // 100–300ms works
-      drive(0, 0);
-      delay(1);
-    }
-
-    goWall = true;
-    parked = false;
-<<<<<<< Updated upstream
-
-
-=======
-    
-     drive(150,156);
-     delay(3000);
->>>>>>> Stashed changes
-    while (!parked) {
-      drive(150, 157);
-      delay(10);
-    }
-
-    drive(0, 0);
-    detachInterrupt(digitalPinToInterrupt(wallInterrupt));
-    drive(50, 50);
-    delay(400);
-    drive(0, 0);
-    Serial.println("parked");
-  }
-
-
-<<<<<<< Updated upstream
-    if (digitalRead(obsInterrupt) == 0) {
-      obsFlag = false;
-      return;
-    }
-    if (obsFlag) { return; }
-
-    obsFlag = true;
-
-    drive(0, 0);
-    delay(500);
-=======
-  static bool latched = false;
-  void testObstacle(){
-    if (latched) return;
-    if(digitalRead(obsInterrupt)==0){
-      latched = false;
-      return;}
-    latched = true;
-    
-    drive(0,0);
-    delay(100);
->>>>>>> Stashed changes
-    int from, to;
-    portENTER_CRITICAL(&isrMux);
-    from = curFrom;
-    to = curTo;
-    portEXIT_CRITICAL(&isrMux);
-
-    if (from >= 0 && to >= 0 && from < NODE_COUNT && to < NODE_COUNT) {
-      blocked[from][to] = true;
-      blocked[to][from] = true;
-      blockedFrom = from;
-      blockedTo = to;
-
-      Serial.print("Blocked edge: ");
-      Serial.print(from);
-      Serial.print(" <-> ");
-      Serial.println(to);
-    }
-    reroute = true;
-  }
-
-//----------servo control---------------
-
-
-  Servo s;
+//========servo control==========
+ Servo s;
   const int SERVO_PIN = 18;
   const int PULSE_MIN = 500;
   const int PULSE_MAX = 2500;
   const int PULSE_STOP = 1500;  // calibrate later if needed
+
 
 
   int clampi(int v, int lo, int hi) {
@@ -657,13 +486,13 @@
   int servoFollow(float turn, float maxTurn_use) {
     // ---- TUNING KNOBS ----
     static int stopPulseUs = 1500;  // CALIBRATE: true "stop" (e.g. 1492..1510)
-    static int spanUs = 250;        // how strong steering is (start 150..300)
-    static float deadband = 0.05f;  // ignore tiny commands near center (0.02..0.10)
-    static float servoScale = 4.0f;
-    static int pulseMinUs = 1100;  // clamp range (keep conservative at first)
-    static int pulseMaxUs = 1900;
+    static int spanUs = 500;        // how strong steering is (start 150..300)
+    static float deadband = 0.00f;  // ignore tiny commands near center (0.02..0.10)
+    static float servoScale = 1.0f;
+    static int pulseMinUs = 500;  // clamp range (keep conservative at first)
+    static int pulseMaxUs = 2500;
 
-    static float rateLimitUsPerSec = 1200.0f;  // smoothness (800..3000). 0 disables.
+    static float rateLimitUsPerSec = 00.0f;  // smoothness (800..3000). 0 disables.
     // ----------------------
 
     static int lastUs = 1500;
@@ -673,9 +502,11 @@
     if (maxTurn_use < 1.0f) return stopPulseUs;
 
     // 1) Normalize to -1..+1
-    float x = (turn / maxTurn_use) * servoScale;
+    float x = (turn / maxTurn_use) ;
     if (x > 1.0f) x = 1.0f;
     if (x < -1.0f) x = -1.0f;
+
+    x*= servoScale;
 
     // 2) Deadband around neutral to prevent creep/jitter
     if (fabsf(x) < deadband) x = 0.0f;
@@ -704,11 +535,141 @@
     lastUs = targetUs;
     return targetUs;
   }
+// -------------------- READ DIGITAL ERROR --------------------
+
+    int sensorToDigital(int raw) {
+    // Returns 1 if sensor "sees the line", else 0
+    if (SENSOR_HIGH_ON_LINE) return (raw > threshold) ? 1 : 0;
+    return (raw < threshold) ? 1 : 0;
+  }
+
+  void readSensor(){
+    for (int i = 0; i < 5; i++) {
+      DigitalValue[i] = sensorToDigital(analogRead(AnalogPin[i]));
+    }
+  }
+  /*
+    Threshold sensors into 0/1, then:
+      error = Σ(DigitalValue[i] * weights[i])
+
+    lineLost => no sensors see the line (sumOn == 0)
+  */
+
+  float readLineErrorDigital(bool &lineLostOut) {
+    int sumOn = 0;
+    int e = 0;
+
+    for (int i = 0; i < N; i++) {
+      int raw = analogRead(AnalogPin[i]);
+      DigitalValue[i] = sensorToDigital(raw);
+      sumOn += DigitalValue[i];
+
+      e += DigitalValue[i] * weights[i];
+    }
+
+    lineLostOut = (sumOn == 0);    
+
+    // If lost, keep lastEUse sign so recovery turns the right way
+    if (lineLostOut) return lastEUse;
+
+    return (float)e;
+  }
+
+//----- detector interupts---------
+  volatile bool goWall = false;
+  volatile bool parked = false;
+  volatile bool obsFlag = false;
+  volatile bool reroute = false;
+  volatile int curFrom = -1;
+  volatile int curTo   = -1;
+  volatile bool wallArmed = false;
+  portMUX_TYPE isrMux = portMUX_INITIALIZER_UNLOCKED;
+  volatile uint32_t wallArmMs = 0;
+
+  void IRAM_ATTR wall() {
+    if (!goWall) return;
+    parked = true;
+    Serial.println("int");
+    return;
+
+  }
+  void gotoWall() {
+    attachInterrupt(digitalPinToInterrupt(wallInterrupt), wall, RISING);
+    // Arm after a short delay to avoid the attach-edge / noise
+    wallArmMs = millis();
+    while (millis() - wallArmMs < 150) {    // 100–300ms works
+      drive(0,0);
+      delay(1);
+    }
+
+    goWall = true;
+    parked = false;
+    
+    drive(150, 156);
+  //to remove obstacal sequence comment from here
+
+    while (true){
+      testObstacle();
+      if (reroute){
+        reroute=false;
+        break;}
+    }
+    drive(-200,200);
+    delay(350);
+    drive(0,0);
+    delay(50);
+    drive(100,103);
+    delay(1500);
+    drive(0,0);
+    delay(50);
+    drive(200,-200);
+    delay(350);
+    drive(0,0);
+  //====================
+    
+
+
+    while (!parked) {
+      drive(100, 103);
+      delay(10);
+    }
+
+    drive(0,0);
+    detachInterrupt(digitalPinToInterrupt(wallInterrupt));
+    drive(35,35);
+    delay(400);
+    drive(0,0);
+    Serial.println("parked");
+    }
+
+  void testObstacle(){
+    if(digitalRead(obsInterrupt)==0){return;}
+    drive(0,0);
+    delay(500);
+    int from, to;
+    portENTER_CRITICAL(&isrMux);
+    from = curFrom;
+    to   = curTo;
+    portEXIT_CRITICAL(&isrMux);
+
+    if (from >= 0 && to >= 0 && from < NODE_COUNT && to < NODE_COUNT) {
+      blocked[from][to] = true;
+      blocked[to][from] = true;
+      blockedFrom = from;
+      blockedTo = to;
+
+      Serial.print("Blocked edge: ");
+      Serial.print(from);
+      Serial.print(" <-> ");
+      Serial.println(to);
+      }
+      reroute= true;
+  }
 
 
 // -------------------- follow line ,--------------------
   void follow() {
-
+    
     delay(delaySet);
 
     // 1) Read digital line error
@@ -725,16 +686,16 @@
 
     // 3) Line lost recovery: arc-spin based on lastEUse sign (forward-only)
     /*if (lineLost) {
-        // Quick spin-search to reacquire (stronger than arcing)
-        int search = 120;            // tune 90..160
-        int base   = baseSpeed - 40; // slow a bit while searching
+      // Quick spin-search to reacquire (stronger than arcing)
+      int search = 120;            // tune 90..160
+      int base   = baseSpeed - 40; // slow a bit while searching
 
-        if (lastEUse >= 0) drive(base - search, base + search);
-        else               drive(base + search, base - search);
+      if (lastEUse >= 0) drive(base - search, base + search);
+      else               drive(base + search, base - search);
 
-        // Don’t run PID this cycle
-        return;
-      }*/
+      // Don’t run PID this cycle
+      return;
+    }*/
 
     // 4) Corner slow-down
     int absErr = abs((int)error);
@@ -752,7 +713,7 @@
 
     // 6) PID core (integral, derivative computed on eUse)
     integral += eUse * dt;
-    if (integral > integralLimit) integral = integralLimit;
+    if (integral >  integralLimit) integral =  integralLimit;
     if (integral < -integralLimit) integral = -integralLimit;
 
     float dRaw = (eUse - lastEUse) / dt;
@@ -772,26 +733,27 @@
 
     // 7) Variable maxTurn: smaller on straights, larger in corners
     float maxTurn_use = (absErr >= 2) ? maxTurn_corner : maxTurn_center;
-    if (turn > maxTurn_use) turn = maxTurn_use;
+    if (turn >  maxTurn_use) turn =  maxTurn_use;
     if (turn < -maxTurn_use) turn = -maxTurn_use;
 
     // 8) Turn slew-rate limiting (prevents sharp oscillation/snapping)
     float maxTurnStep = turnSlewRate * dt;
     float delta = turn - lastTurn;
-    if (delta > maxTurnStep) turn = lastTurn + maxTurnStep;
+    if (delta >  maxTurnStep) turn = lastTurn + maxTurnStep;
     if (delta < -maxTurnStep) turn = lastTurn - maxTurnStep;
     lastTurn = turn;
+
 
     int steerUs = servoFollow(turn, maxTurn_use);
     s.writeMicroseconds(steerUs);
 
     // 9) Convert to motor speeds
     int rightSpeed = (int)(localBase - turn);
-    int leftSpeed = (int)(localBase + turn);
+    int leftSpeed  = (int)(localBase + turn);
 
     // 10) Drive
-    rightSpeed = clamp255(rightSpeed);
-    leftSpeed = clamp255(leftSpeed);
+    rightSpeed=clamp255(rightSpeed);
+    leftSpeed=clamp255(leftSpeed);
     drive(rightSpeed, leftSpeed);
   }
 
@@ -802,9 +764,9 @@
     static unsigned long t0 = 0;
     static unsigned long t4 = 0;
 
-    const unsigned long WINDOW_MS = 100;  // <-- allow sensors to differ by up to 50ms
+    const unsigned long WINDOW_MS = 100; // <-- allow sensors to differ by up to 50ms
 
-    readSensor();  // updates DigitalValue[]
+    readSensor(); // updates DigitalValue[]
 
     unsigned long now = millis();
 
@@ -819,7 +781,7 @@
     }
 
     // If both latched and close enough in time => node detected
-    if (s0_latched && s4_latched && ((t0 > t4 ? t0 - t4 : t4 - t0) <= WINDOW_MS)) {
+    if (s0_latched && s4_latched && ( (t0 > t4 ? t0 - t4 : t4 - t0) <= WINDOW_MS )) {
       // reset for next detection
       s0_latched = false;
       s4_latched = false;
@@ -833,283 +795,320 @@
     return false;
   }
 
-  void turn180() {
-    drive(0, 0);
-    delay(10);
-    drive(-255, 255);
-    delay(550);
-    while (true) {
+
+
+
+    
+  void turn180(){
+    drive(0,0);
+    delay(50);
+    drive(-255,255);
+    delay (550);
+    while (true){
       readSensor();
-      if (DigitalValue[2] == 0) {
+      if (DigitalValue[2]==0){
         break;
       }
     }
-    drive(0, 0);
-    delay(50);
-
-    integral = 0.0f;
-    lastEUse = 0.0f;  // reset pid EFFECTIVE error used by PID
-    dFilt = 0.0f;
-    lastTurn = 0.0f;
-    lastTimeMs = millis();
-  }
-  void turnLeft() {
-    drive(230, 230);
+    drive (0,0);
     delay(100);
-    drive(-255, 255);
-    delay(200);
-    while (true) {
-      readSensor();
-      if (DigitalValue[2] == 0) {
-        break;
-      }
-    }
-    drive(0, 0);
-    delay(50);
+
     integral = 0.0f;
-    lastEUse = 0.0f;  // reset pid EFFECTIVE error used by PID
+    lastEUse = 0.0f;     // reset pid EFFECTIVE error used by PID
     dFilt = 0.0f;
     lastTurn = 0.0f;
     lastTimeMs = millis();
   }
-  void turnRight() {
-    drive(230, 230);
-    delay(120);
-    drive(255, -255);
-    delay(200);
-    while (true) {
-      readSensor();
-      if (DigitalValue[2] == 0) {
-        break;
-      }
-    }
-    drive(0, 0);
-    delay(50);
-
-    integral = 0.0f;
-    lastEUse = 0.0f;  // reset pid EFFECTIVE error used by PID
-    dFilt = 0.0f;
-    lastTurn = 0.0f;
-    lastTimeMs = millis();
-  }
-
-//-----drive to neighbouring node---------follow edge +follow node---
-  int previous = 4;
-  int position = 0;
-  void followNode(int from, int to) {
-    portENTER_CRITICAL(&isrMux);
-    curFrom = from;
-    curTo = to;
-    portEXIT_CRITICAL(&isrMux);
-
-    if (previous == to) { turn180(); }
-    while (true) {
-      testObstacle();
-      if (obsflag) {
-          turn180();
-          followNode(to,from);
-          obsFlag = false;
-          return;
+  void turnLeft(){
+      drive(230,230);
+      delay(100);
+      drive(-255,255);
+      delay (200);
+      while (true){
+        readSensor();
+        if (DigitalValue[2]==0){
+          break;
           }
-<<<<<<< Updated upstream
-        
-=======
-      
->>>>>>> Stashed changes
-      follow();
-      if (detectNode()) {
-        previous = position;
-        position = to;
-        return;
+        }
+      drive (0,0);
+      delay(100);
+      integral = 0.0f;
+      lastEUse = 0.0f;     // reset pid EFFECTIVE error used by PID
+      dFilt = 0.0f;
+      lastTurn = 0.0f;
+      lastTimeMs = millis();
+
       }
-    }
-  }
+      void turnRight(){
+        drive(230,230);
+        delay(120);
+        drive(255,-255);
+        delay (200);
+        while (true){
+          readSensor();
+          if (DigitalValue[2]==0){
+            break;
+          }
+        }
+        drive (0,0);
+        delay(100);
 
-  void driveEdge(int from, int to) {
-    int w = getEdgeWeight(from, to);
+        integral = 0.0f;
+        lastEUse = 0.0f;     // reset pid EFFECTIVE error used by PID
+        dFilt = 0.0f;
+        lastTurn = 0.0f;
+        lastTimeMs = millis();
 
-    // choose speed based on weight
-    if (w > 3) {
+      }
+
+//-----drive to neighbouring node--------
+  int previous =4;
+  int position=0;
+
+    
+  void followNode(int from,int to){
+        portENTER_CRITICAL(&isrMux);
+        curFrom = from;
+        curTo   = to;
+        portEXIT_CRITICAL(&isrMux);
+        
+        if (previous==to){turn180();}
+        obsFlag = false;
+        while (true){
+              testObstacle();
+              if (reroute){
+              turn180();
+              while(true){
+                follow();
+                if (detectNode()){
+                  drive(0,0);
+                  previous = to;
+                  position = from;
+                  return;
+                    }
+                  }
+              	}
+              follow();
+              if (detectNode()){
+                drive(0,0);
+                previous = from;
+                position = to;
+                break;
+                }
+      }
+      }
+
+ void driveEdge(int from, int to) {
+  int w = getEdgeWeight(from, to);
+
+  // choose speed based on weight
+  if (w > 3) {
       applyPIDProfile(pid_w2);
     } else {
       applyPIDProfile(pid_w1);
     }
-
-    portENTER_CRITICAL(&isrMux);
-    curFrom = from;
-    curTo = to;
-    portEXIT_CRITICAL(&isrMux);
-    if ((from == 6) && (to == 5)) {
-      if (previous == 4) { turnLeft(); }
-      if (previous == 3) { turnRight(); }
-      if (previous == 1) {
-        drive(255, 255);
-<<<<<<< Updated upstream
+  
+  portENTER_CRITICAL(&isrMux);
+  curFrom = from;
+  curTo   = to;
+  portEXIT_CRITICAL(&isrMux);
+    if ((from==6) && (to==5)){
+      if (previous == 4){turnLeft();}
+      if (previous == 3){turnRight();}
+      if (previous == 1){drive(255,255);
         delay(nodeCrossDelay);
       }
-      for (int i = 0; i < 30; i++) {
-        delay(10);
-        follow();
+      for (int i=0; i<30; i++){
+      delay(10);
+      follow();
       }
-      drive(220, 220);
+      drive (220,220);
       gotoWall();
-      position = 5;
+      position=5;
       return;
-=======
-      }
+
     }
-        if (previous==to){turn180();}
-        while (true){
-              testObstacle();
-              if (reroute) {
-                turn180();
-                portENTER_CRITICAL(&isrMux);
-                curFrom = to;
-                curTo   = from;
-                portEXIT_CRITICAL(&isrMux);
-                while (true){
-                  follow();
-                  if (detectNode()){
-                    drive(0,0);
-                    position= from;
-                    previous = to;
-                    return;
-                  }
-                }
-                }
-
-              follow();
-              if (detectNode()){
-                previous = from;
-                position = to;
-                return;
-                }
->>>>>>> Stashed changes
-    }
+    if ((from == 6) && (to == 1)) {
+      if (previous == 4) {
+        turnRight();
+        followNode(from, to);
+      } else if (previous == 3) {
+        turnLeft();
+        followNode(from, to);
+      } else {
+        drive(255, 255);
+        delay(nodeCrossDelay);
+        followNode(from, to);
       }
+      return;
+    }
+
+    else if ((from == 7) && (to == 1)) {
+      if (previous == 2) {
+        turnRight();
+        followNode(from, to);
+      } else if (previous == 0) {
+        turnLeft();
+        followNode(from, to);
+      } else {
+        drive(255, 255);
+        delay(nodeCrossDelay);
+        followNode(from, to);
+      }
+      return;
+    }
+
+    else if ((from == 6) && (to == 3)) {
+      if (previous == 1) {
+        turnRight();
+        followNode(from, to);
+      } else {
+        drive(255, 255);
+        delay(nodeCrossDelay);
+        followNode(from, to);
+      }
+      return;
+    } 
+    else if ((from == 6) && (to == 4)) {
+      if (previous == 1) {
+        turnLeft();
+        followNode(from, to);
+      } else {
+        drive(255, 255);
+        delay(nodeCrossDelay);
+        followNode(from, to);
+      }
+    return;
+    }
+    
+     else if ((from == 7) && (to == 2)) {
+      if (previous == 1) {
+        turnLeft();
+        followNode(from, to);
+      } else {
+        drive(255, 255);
+        delay(nodeCrossDelay);
+        followNode(from, to);
+      }
+    return;
+    } 
+    else if ((from == 7) && (to == 0)) {
+      if (previous == 1) {
+        turnRight();
+        followNode(from, to);
+      } else {
+        drive(255, 255);
+        delay(nodeCrossDelay);
+        followNode(from, to);
+      }
+    return;
+    } 
+    else {
+      drive(255,255);
+      delay(nodeCrossDelay);
+      followNode(from, to);
+      return;
+    }
+  }
 
 
 
-//----- drive path any node to node---drivePath--
-  void drivePath(uint8_t start, uint8_t goal) {
-    while (position != goal) {
+//----- drive path any node to node-----
+  void drivePath( uint8_t goal) {
+    while (position!= goal){
       uint8_t path[16];
-      uint8_t len = dijkstraPath(start, goal, path, 16);
-      reroute = false;
+      uint8_t len = dijkstraPath(position, goal, path, 16);
+      reroute= false;
       if (len == 0) {
         Serial.println("No path found!");
         return;
       }
-      for (int i = 1; i < len; i++) {
-        driveEdge(position, path[i]);
+      for(int i=1; i<len; i++){
+        driveEdge(position,path[i]);
         if (reroute) {
-          start = position;
-          reroute = false;
           break;
         }
+      
       }
+
     }
-<<<<<<< Updated upstream
+    drive(0,0);
     sendArrival(position);
-=======
-      drive(0,0);
-      sendArrival(position);
->>>>>>> Stashed changes
   }
 
-//-----------loop--------------
-  void loop() {
-    if (routeLen <= 0) {
-      drive(0, 0);
-      delay(1000);
-    } else {
-      for (int i = 0; i < routeLen; i++) {
+//-----------loop-------------- 
+  void loop(){
+    if  (routeLen<=0){
+      drive(0,0);
+      delay(1000);}
+    else{
+      for (int i=0; i<routeLen;i++){
         int dest = routeNodes[i];
-<<<<<<< Updated upstream
-        if (dest == position) { continue; }
+        if (dest==position){continue;}
         Serial.print("Driving to : ");
         Serial.println(dest);
-        drivePath(position, (uint8_t)dest);
-        drive(0, 0);
-        delay(100);
-=======
-        if (dest==position){continue;}
-        //Serial.print("Driving to : ");
-        //Serial.println(dest);
-        drivePath(position,(uint8_t)dest);
+        drivePath((uint8_t)dest);
         drive(0,0);
-        delay(500);
->>>>>>> Stashed changes
+        delay(100);
       }
 
-      delay(1000);
-      routeLen = 0;
+    delay(1000);
+    routeLen = 0;
     }
-  }
-
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
+    }
+    
 // -------------------- SETUP --------------------
-  void setup() {
-    Serial.begin(9600);
+ void setup() {
+  Serial.begin(9600);
 
 
 
-    pinMode(motor1PWM, OUTPUT);
-    pinMode(motor1Phase, OUTPUT);
-    pinMode(motor2PWM, OUTPUT);
-    pinMode(motor2Phase, OUTPUT);
+  pinMode(motor1PWM, OUTPUT);
+  pinMode(motor1Phase, OUTPUT);
+  pinMode(motor2PWM, OUTPUT);
+  pinMode(motor2Phase, OUTPUT);
 
-    drive(0, 0);
+  drive(0,0);
+  s.setPeriodHertz(50);                  // standard servo PWM
+  s.attach(SERVO_PIN, PULSE_MIN, PULSE_MAX);
+  s.writeMicroseconds(1500);  
 
-    pinMode(obsInterrupt, INPUT_PULLDOWN);
-    pinMode(wallInterrupt, INPUT_PULLDOWN);
-    //attachInterrupt(digitalPinToInterrupt(obsInterrupt),obstacle,RISING);
+  pinMode(obsInterrupt, INPUT_PULLDOWN);
+  pinMode(wallInterrupt, INPUT_PULLDOWN);
+  //attachInterrupt(digitalPinToInterrupt(obsInterrupt),obstacle,RISING);
 
-    analogReadResolution(12);        // 0..4095
-    analogSetAttenuation(ADC_11db);  // best for ~0..3.3V
-
-
-    lastTimeMs = millis();
-
-    // 50Hz is standard servo rate
-    s.setPeriodHertz(50);
-    s.attach(SERVO_PIN, PULSE_MIN, PULSE_MAX);
-
-    // stop
-    s.writeMicroseconds(PULSE_STOP);
+  analogReadResolution(12);        // 0..4095
+  analogSetAttenuation(ADC_11db);  // best for ~0..3.3V
 
 
-    connectToWiFi();
-    String routeStr = getRoute();
-    if (routeStr.length() == 0) {
-      Serial.println("No route received.");
-      return;
-    }
-<<<<<<< Updated upstream
-=======
+  lastTimeMs = millis();
 
->>>>>>> Stashed changes
+  
 
-    if (!parseRouteDynamic(routeStr, routeNodes, routeLen)) {
-      Serial.println("Failed to parse route!");
-      return;
-    }
+  connectToWiFi();
+  String routeStr = getRoute();
+  if (routeStr.length() == 0) {
+  Serial.println("No route received.");
+  return;
+ }
 
-    Serial.print("Route nodes: ");
-    for (int i = 0; i < routeLen; i++) {
-      Serial.print(routeNodes[i]);
-      if (i < routeLen - 1) Serial.print(" -> ");
-    }
-    Serial.println();
+ if (!parseRouteDynamic(routeStr, routeNodes, routeLen)) {
+  Serial.println("Failed to parse route!");
+  return;
+ }
 
-    position = 4;
-    driveEdge(4, 0);
-    drive(0, 0);
-    delay(200);
-    sendArrival(position);
+  Serial.print("Route nodes: ");
+  for (int i = 0; i < routeLen; i++) {
+  Serial.print(routeNodes[i]);
+  if (i < routeLen - 1) Serial.print(" -> ");
   }
+  Serial.println();
+
+
+  position = 4;
+  driveEdge(4,0);
+  drive(0,0);
+  delay(200);
+    }
 
 //==end==

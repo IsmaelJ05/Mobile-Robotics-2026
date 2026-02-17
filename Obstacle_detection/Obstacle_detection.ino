@@ -38,18 +38,23 @@ float readDistance()
 
 void loop()
 {
-  delay(10);
+
   float dist = readDistance();
- if((dist>8.0)&&(dist<12.0)){
+
+ if((dist>8)&&(dist<10)){
+
   digitalWrite(wall, LOW);
   digitalWrite(wall, HIGH);
   delayMicroseconds(500);
   digitalWrite(wall, LOW);
   digitalWrite(obs, LOW);
   digitalWrite(obs, HIGH);
-  delay(500);
+  delay(50);
   digitalWrite(obs, LOW);
   
+
+
  }
+
   
 }
