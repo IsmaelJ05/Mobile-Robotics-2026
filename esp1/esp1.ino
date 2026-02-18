@@ -29,32 +29,32 @@
 
   // Profile for normal edges
   PIDProfile pid_w1 = {
-    /*baseSpeed*/ 250,
+    /*baseSpeed*/ 200,
     /*slowDown1*/ 70,
-    /*slowDown2*/ 120,
-    /*Kp_center*/ 28.0f,
-    /*Kd_center*/ 12.0f,
-    /*Kp_corner*/ 40.0f,
-    /*Kd_corner*/ 24.0f,
-    /*maxTurn_center*/ 95.0f,
-    /*maxTurn_corner*/ 250.0f,
-    /*innerErrorScale*/ 0.60f,
-    /*innerDScale*/ 0.60f,
-    /*dAlpha*/ 0.88f,
-    /*turnSlewRate*/ 200
-  };
-
-  // Profile for slower / heavy edges
-  PIDProfile pid_w2 = {
-    /*baseSpeed*/ 250,
-    /*slowDown1*/ 100,
-    /*slowDown2*/ 170,
+    /*slowDown2*/ 100,
     /*Kp_center*/ 28.0f,
     /*Kd_center*/ 12.0f,
     /*Kp_corner*/ 40.0f,
     /*Kd_corner*/ 24.0f,
     /*maxTurn_center*/ 150.0f,
     /*maxTurn_corner*/ 300.0f,
+    /*innerErrorScale*/ 0.60f,
+    /*innerDScale*/ 0.60f,
+    /*dAlpha*/ 0.88f,
+    /*turnSlewRate*/ 300.0f
+  };
+
+  // Profile for slower / heavy edges
+  PIDProfile pid_w2 = {
+    /*baseSpeed*/ 200,
+    /*slowDown1*/ 80,
+    /*slowDown2*/ 170,
+    /*Kp_center*/ 28.0f,
+    /*Kd_center*/ 12.0f,
+    /*Kp_corner*/ 40.0f,
+    /*Kd_corner*/ 24.0f,
+    /*maxTurn_center*/ 200.0f,
+    /*maxTurn_corner*/ 400.0f,
     /*innerErrorScale*/ 0.50f,
     /*innerDScale*/ 0.70f,
     /*dAlpha*/ 0.90f,
@@ -427,6 +427,7 @@
 
   const int N = 5;
   int AnalogPin[N] = {4, 5, 6, 7, 15};
+  int sensorOut[N]= {12,13,42,41,40};
 
   int DigitalValue[N] = {0,0,0,0,0};
 
@@ -484,57 +485,34 @@
 
 
   int servoFollow(float turn, float maxTurn_use) {
-    // ---- TUNING KNOBS ----
-    static int stopPulseUs = 1500;  // CALIBRATE: true "stop" (e.g. 1492..1510)
-    static int spanUs = 800;        // how strong steering is (start 150..300)
-    static float deadband = 0.00f;  // ignore tiny commands near center (0.02..0.10)
+
     static float servoScale = 1.5f;
-    static int pulseMinUs = 500;  // clamp range (keep conservative at first)
-    static int pulseMaxUs = 2500;
+    static float deadband = 0.02f;
 
-    static float rateLimitUsPerSec = 00.0f;  // smoothness (800..3000). 0 disables.
-    // ----------------------
+    if (maxTurn_use < 1.0f) return 90;  // center
 
-    static int lastUs = 1500;
-    static unsigned long lastMs = 0;
+    float x = turn / maxTurn_use;
 
-    // Safety
-    if (maxTurn_use < 1.0f) return stopPulseUs;
-
-    // 1) Normalize to -1..+1
-    float x = (turn / maxTurn_use) ;
     if (x > 1.0f) x = 1.0f;
     if (x < -1.0f) x = -1.0f;
 
-    x*= servoScale;
+    x *= servoScale;
 
-    // 2) Deadband around neutral to prevent creep/jitter
     if (fabsf(x) < deadband) x = 0.0f;
 
-    // 3) Map to microseconds around stop
-    int targetUs = stopPulseUs + (int)(x * (float)spanUs);
+    // Map -1..+1 to 0..180
+    int angle = 90 + (int)(x * 90);
 
-    // 4) Clamp to safe range
-    if (targetUs < pulseMinUs) targetUs = pulseMinUs;
-    if (targetUs > pulseMaxUs) targetUs = pulseMaxUs;
+    // Clamp
+    if (angle < 45) angle = 45;
+    if (angle > 135) angle = 135;
 
-    // 5) Optional rate limiting (prevents servo command snapping)
-    unsigned long now = millis();
-    if (lastMs == 0) lastMs = now;
-    float dt = (now - lastMs) / 1000.0f;
-    if (dt < 0.001f) dt = 0.001f;
-    lastMs = now;
-
-    if (rateLimitUsPerSec > 0.0f) {
-      int maxStep = (int)(rateLimitUsPerSec * dt);
-      int delta = targetUs - lastUs;
-      if (delta > maxStep) targetUs = lastUs + maxStep;
-      if (delta < -maxStep) targetUs = lastUs - maxStep;
-    }
-
-    lastUs = targetUs;
-    return targetUs;
+    return angle;
   }
+
+
+
+
 // -------------------- READ DIGITAL ERROR --------------------
 
     int sensorToDigital(int raw) {
@@ -546,6 +524,13 @@
   void readSensor(){
     for (int i = 0; i < 5; i++) {
       DigitalValue[i] = sensorToDigital(analogRead(AnalogPin[i]));
+      /*if (DigitalValue[i]==1){
+      digitalWrite(sensorOut[i],HIGH);
+      }
+    else{
+      digitalWrite(sensorOut[i],LOW);
+    }*/
+
     }
   }
   /*
@@ -604,7 +589,7 @@
     
     drive(150, 153);//156
   //to remove obstacal sequence comment from here
-
+    s.angle(90);
     while (true){
       testObstacle();
       if (reroute){
@@ -634,8 +619,8 @@
 
     drive(0,0);
     detachInterrupt(digitalPinToInterrupt(wallInterrupt));
-    drive(35,35);
-    delay(200);
+    drive(50,50);
+    delay(400);
     drive(0,0);
     Serial.println("parked");
     }
@@ -742,8 +727,9 @@
     lastTurn = turn;
 
 
-    int steerUs = servoFollow(turn, maxTurn_use);
-    s.writeMicroseconds(steerUs);
+    int angle = servoFollow(turn, maxTurn_use);
+    s.write(angle);
+
 
     // 9) Convert to motor speeds
     int rightSpeed = (int)(localBase - turn);
@@ -1079,7 +1065,7 @@
 
   s.setPeriodHertz(50);                  // standard servo PWM
   s.attach(SERVO_PIN, PULSE_MIN, PULSE_MAX);
-  s.writeMicroseconds(1500);  
+  s.write(90);  
 
   pinMode(obsInterrupt, INPUT_PULLDOWN);
   pinMode(wallInterrupt, INPUT_PULLDOWN);
