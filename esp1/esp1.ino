@@ -486,9 +486,9 @@
   int servoFollow(float turn, float maxTurn_use) {
     // ---- TUNING KNOBS ----
     static int stopPulseUs = 1500;  // CALIBRATE: true "stop" (e.g. 1492..1510)
-    static int spanUs = 500;        // how strong steering is (start 150..300)
+    static int spanUs = 800;        // how strong steering is (start 150..300)
     static float deadband = 0.00f;  // ignore tiny commands near center (0.02..0.10)
-    static float servoScale = 1.0f;
+    static float servoScale = 1.5f;
     static int pulseMinUs = 500;  // clamp range (keep conservative at first)
     static int pulseMaxUs = 2500;
 
@@ -602,7 +602,7 @@
       delay(1);
     }
     
-    drive(150, 156);
+    drive(150, 153);//156
   //to remove obstacal sequence comment from here
 
     while (true){
@@ -615,7 +615,7 @@
     delay(350);
     drive(0,0);
     delay(50);
-    drive(100,103);
+    drive(100,101);//103
     delay(1500);
     drive(0,0);
     delay(50);
@@ -628,14 +628,14 @@
     parked= false;
 
     while (!parked) {
-      drive(100, 103);
+      drive(100, 101);//103
       delay(10);
     }
 
     drive(0,0);
     detachInterrupt(digitalPinToInterrupt(wallInterrupt));
     drive(35,35);
-    delay(400);
+    delay(200);
     drive(0,0);
     Serial.println("parked");
     }
@@ -817,9 +817,12 @@
     lastTurn = 0.0f;
     lastTimeMs = millis();
   }
+
+
   void turnLeft(){
       drive(230,230);
-      delay(100);
+      delay(130);
+      drive(0,0);
       drive(-255,255);
       delay (200);
       while (true){
@@ -839,7 +842,8 @@
       }
       void turnRight(){
         drive(230,230);
-        delay(120);
+        delay(150);
+        drive(0,0);
         drive(255,-255);
         delay (200);
         while (true){
@@ -1112,6 +1116,7 @@
   position = 4;
   driveEdge(4,0);
   drive(0,0);
+  sendArrival(position);
   delay(200);
     }
 
