@@ -3,6 +3,48 @@
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_MMA8451.h>
 #include <Adafruit_Sensor.h>
+//====== obs pins==============
+int trig = 4;
+int echo = 5;
+int wall = 18;
+int obs = 17;
+
+long duration;
+float distance;
+// ========obs code===========
+float readDistance()
+{
+  digitalWrite(trig, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trig, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trig, LOW);
+
+  duration = pulseIn(echo, HIGH, 30000);
+
+  if (duration == 0) return 500;
+
+  return duration / 58.0;
+}
+ void testObs(){
+    float dist = readDistance();
+
+ if((dist>5)&&(dist<7)){
+
+  digitalWrite(wall, LOW);
+  digitalWrite(wall, HIGH);
+  delayMicroseconds(500);
+  digitalWrite(wall, LOW);
+  digitalWrite(obs, LOW);
+  digitalWrite(obs, HIGH);
+  delay(50);
+  digitalWrite(obs, LOW);
+  
+
+
+ }
+
+ }
 
 // ===== I2C pins & OLED address =====
 #define I2C_SDA   3
@@ -29,9 +71,9 @@ float vx = 0.0f;        // m/s (estimated)
 float ax_bias = 0.0f;   // m/s^2 bias from calibration
 
 // ===== Tuning =====
-const float ACCEL_DEADBAND = 0.06f;   // ignore tiny noise (m/s^2)
+const float ACCEL_DEADBAND = 0.16f;   // ignore tiny noise (m/s^2)
 const float VELOCITY_DECAY = 0.92f;   // drift reduction when accel ~0
-const float STOP_ACCEL_THRESH = 0.08f;
+const float STOP_ACCEL_THRESH = 0.28f;
 
 void calibrateX(unsigned samples = 300) {
   sensors_event_t e;
@@ -46,16 +88,26 @@ void calibrateX(unsigned samples = 300) {
 }
 
 void showSpeed(float mps) {
+  //if (mps>1.0) return;
   display.clearDisplay();
   display.setTextSize(2);
   display.setCursor(0, 20);
-  display.print(mps, 2);
-  display.print(" m/s");
+  display.print(mps*3.6, 2);
+  display.print(" km/h");
   display.display();
 }
 
 void setup() {
   Serial.begin(9600);
+
+  pinMode(trig, OUTPUT);
+  pinMode(echo, INPUT);
+  pinMode(wall, OUTPUT);
+  pinMode(obs, OUTPUT);
+
+  digitalWrite(wall, LOW);
+  digitalWrite(obs, LOW);
+  digitalWrite(trig, LOW);
 
   Wire.begin(I2C_SDA, I2C_SCL);
   Wire.setClock(100000);
@@ -117,6 +169,8 @@ void setup() {
 }
 
 void loop() {
+  testObs();
+
   unsigned long now = millis();
 
   // ===== IMU update @ 100 Hz =====
@@ -133,19 +187,28 @@ void loop() {
     // Noise removal
     if (fabs(ax) < ACCEL_DEADBAND) ax = 0.0f;
 
-    // Integrate accel -> velocity
-    vx += ax * dt;
+    static float ax_filtered = 0;
+    ax_filtered = 0.85f * ax_filtered + 0.15f * ax;
+    vx += ax_filtered * dt;
 
-    // Drift control when accel is tiny
-    if (fabs(ax) < STOP_ACCEL_THRESH) {
-      vx *= VELOCITY_DECAY;
-      if (fabs(vx) < 0.01f) vx = 0.0f;
+    // Integrate accel -> velocity
+    if (fabs(ax) > 0.25f) {
+    vx += ax * dt;
+}
+
+    // Consider stationary if accel near 0 for a while
+    static int stillCount = 0;
+    if (fabs(ax) < 0.12f) stillCount++;
+    else stillCount = 0;
+
+    if (stillCount > 30) {   // ~300 ms at 100 Hz
+      vx = 0.0f;
     }
-  }
 
   // ===== OLED update every 2 seconds =====
   if (now - lastOledMs >= OLED_PERIOD_MS) {
     lastOledMs = now;
     showSpeed(fabs(vx));
   }
+}
 }
