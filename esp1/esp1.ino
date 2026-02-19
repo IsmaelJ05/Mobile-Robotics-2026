@@ -589,7 +589,7 @@
     
     drive(150, 153);//156
   //to remove obstacal sequence comment from here
-    s.angle(90);
+    s.write(90);
     while (true){
       testObstacle();
       if (reroute){
@@ -620,7 +620,7 @@
     drive(0,0);
     detachInterrupt(digitalPinToInterrupt(wallInterrupt));
     drive(50,50);
-    delay(400);
+    delay(1700);
     drive(0,0);
     Serial.println("parked");
     }
@@ -807,7 +807,7 @@
 
   void turnLeft(){
       drive(230,230);
-      delay(130);
+      delay(200);
       drive(0,0);
       drive(-255,255);
       delay (200);
@@ -828,7 +828,7 @@
       }
       void turnRight(){
         drive(230,230);
-        delay(150);
+        delay(200);
         drive(0,0);
         drive(255,-255);
         delay (200);
